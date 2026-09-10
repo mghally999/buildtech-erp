@@ -1954,6 +1954,13 @@ let OFFICE_ID = null;
 // the person's own office, where a record made in the company view is filed
 let MY_OFFICE_ID = null;
 
+/* Payments have no office of their own; the invoice they settle has. Read them through
+   the invoice, and in a single-office view keep to that office, or the Dubai chart shows
+   Belgian receipts and the other way round. */
+const invoicePayments = cols => {
+  const r = sb.from('invoice_payments').select(cols + ',invoices!inner(office_id)');
+  return OFFICE_ID ? r.eq('invoices.office_id', OFFICE_ID) : r; };
+
 /* One more try on a 401. In the burst of requests a screen fires as it opens, one can
    occasionally leave before the library has put the token on it; it comes back 401 with
    no rows, and the screen shows nothing where there is something. Asking again after the
@@ -3066,7 +3073,7 @@ function Operations({go,settings}){
     const q=(t,s)=>sb.from(t).select(s||'*');
     const [inq,pj,pt,iv,pay,cp,ex,ap,sp,sh,po,pot,cm,dw,vf,rw,al]=await Promise.all([
       q('inquiries','*, clients(name)'), q('projects','id,name,status,value'),
-      q('project_totals'), q('invoice_totals'), q('invoice_payments','paid_on,amount'),
+      q('project_totals'), q('invoice_totals'), invoicePayments('paid_on,amount'),
       q('cash_position'), q('expenses'), q('approval_watch'), q('stock_position'),
       q('shipments','id,status,eta'), q('open_order_lines'), q('purchase_order_totals'),
       q('commitments'), q('document_watch'), q('visit_funnel'), q('requirement_watch'),
@@ -3110,7 +3117,9 @@ function Operations({go,settings}){
     const vals=months.map(m=>by[m]||0); const max=Math.max(...vals,1);
     return vals.map(v=>Math.max(2,Math.round(v/max*26)));
   };
-  const inShape  = shape(d.pay,'paid_on','amount');
+  // receipts in the currency on screen, each by the office of the invoice it settled
+  const inShape  = shape(d.pay.map(x=>({paid_on:x.paid_on,
+                     amount:officeToActive(x.amount, x.invoices&&x.invoices.office_id)})),'paid_on','amount');
   const outShape = shape(d.ex.filter(x=>x.kind==='expense'),'paid_on','amount_aed');
   const Spark = ({bars,tone})=>html`<div class="spark">
     ${bars.map((h,i)=>html`<i key=${i} style=${{height:h+'px',
@@ -12023,7 +12032,7 @@ function FinanceOverview({go}){
       sb.from('expenses').select('*').order('expense_date',{ascending:false}),
       sb.from('partner_ledger').select('*'),
       sb.from('payroll').select('*'),
-      sb.from('invoice_payments').select('paid_on,amount,invoices!inner(office_id)')]);
+      invoicePayments('paid_on,amount')]);
     const e=cash.error||inv.error||exp.error||led.error||pay.error||rec.error;
     if(e) setErr(e.message);
     setD({cash:cash.data||[],inv:inv.data||[],exp:exp.data||[],
