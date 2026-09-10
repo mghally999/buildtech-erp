@@ -1,0 +1,415 @@
+{
+  "_hand_checked": "Every section, quantity, unit, product line, consumption and internal note checked by hand against 4.BOQ and Spec - Meat and F&V Market floor (.docx and .pdf) on 10 September 2026. Rewrite only after checking again.",
+  "4.BOQ and Spec - Meat and F&V Market floor.docx": {
+    "title": "Replacement of Fruits and Vegetable & Meat Market Flooring",
+    "client": "Waterfront Market LLC",
+    "ref": "Tender ref 7089",
+    "items": 14,
+    "unread": 0,
+    "notes": [
+      "color to be approved after Mockup sample.",
+      "work will be executed in phases (4 to 8 phases).",
+      "vendor to provide all required temporary power, lighting..., etc. necessary to complete the work.",
+      "10 years warranty to be included."
+    ],
+    "boilerplateDropped": true,
+    "sections": [
+      {
+        "title": "Fruits and Vegetable: Removal of existing screed with carting away",
+        "priced": {
+          "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of waterproofing using BASF MasterSeal M866",
+        "priced": {
+          "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [
+          "**IBTMAX B 1K : Approx. 1,5 kg/m².",
+          "1K PU-bitumen resin, high thixotropy. Excellent mechanical properties. For difficult details and finishes with asphalt fabric membranes. High adhesion to bitumen finish. Root penetration resistant. EN-1504-2."
+        ],
+        "perM2": 20.91,
+        "applies": true
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of max 75mm screed with shutters using…",
+        "priced": {
+          "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of insitu concrete skirting 150mm high x…",
+        "priced": {
+          "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
+          "unit": "lm",
+          "qty": 588
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of Ucret HFl00 RT System @ 6mm",
+        "priced": {
+          "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 10,5 kg/m² at 6 mm.",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 149.44,
+        "applies": true
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of 200 mm covered skirting using Ucrete RG…",
+        "priced": {
+          "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
+          "unit": "lm",
+          "qty": 588
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 7 kg/m².",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 99.62,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of expansion joint according to the…",
+        "priced": {
+          "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
+          "unit": "item",
+          "qty": 1
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Removal of existing screed with carting away",
+        "priced": {
+          "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of waterproofing using BASF MasterSeal M866",
+        "priced": {
+          "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [
+          "**IBTMAX B 1K : Approx. 1,5 kg/m².",
+          "1K PU-bitumen resin, high thixotropy. Excellent mechanical properties. For difficult details and finishes with asphalt fabric membranes. High adhesion to bitumen finish. Root penetration resistant. EN-1504-2."
+        ],
+        "perM2": 20.91,
+        "applies": true
+      },
+      {
+        "title": "Meat: Supply and apply of max 75mm screed with shutters using…",
+        "priced": {
+          "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of insitu concrete skirting 150mm high x…",
+        "priced": {
+          "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
+          "unit": "lm",
+          "qty": 424.8
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of Ucret HFl00 RT System @ 6mm",
+        "priced": {
+          "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 10,5 kg/m² at 6 mm.",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 149.44,
+        "applies": true
+      },
+      {
+        "title": "Meat: Supply and apply of 200 mm covered skirting using Ucrete RG…",
+        "priced": {
+          "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
+          "unit": "lm",
+          "qty": 424.8
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 7 kg/m².",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 99.62,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of expansion joint according to the…",
+        "priced": {
+          "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
+          "unit": "item",
+          "qty": 1
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      }
+    ],
+    "internal": [
+      "Fruits and Vegetable item 1: taking the old one off, site work rather than a coating we supply. Put a rate on it or take it out.",
+      "Fruits and Vegetable item 2: offered IBTMAX B 1K against \"Supply and apply of waterproofing using BASF MasterSeal M866\". A polyurethane waterproofing membrane under the screed.",
+      "Fruits and Vegetable item 3: no product in our range is set against it. 75mm of sand and cement with steel mesh is builders work, not a coating.",
+      "Fruits and Vegetable item 4: no product in our range is set against it. Reinforcement steel, not a coating.",
+      "Fruits and Vegetable item 5: offered BT-Crete SL against \"Supply and apply of Ucret HFl00 RT System @ 6mm\". Ucrete, spelled as the bill spells it. Our PU cement mortar is BT-Crete SL.",
+      "Fruits and Vegetable item 6: offered BT-Crete SL against \"Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination\". Ucrete is a polyurethane cement screed for food processing floors. BT-Crete SL is ours: a PU cement mortar for the food industry, food processing and kitchens. It is the same product under a different name.",
+      "Fruits and Vegetable item 6 is measured in lm, so the products’ per-m² cost was not applied; work that rate out by hand.",
+      "Fruits and Vegetable item 7: no product in our range is set against it. A jointing system with a steel cover. We supply the coating, not the joint. Price it in or take it out.",
+      "Meat item 1: taking the old one off, site work rather than a coating we supply. Put a rate on it or take it out.",
+      "Meat item 2: offered IBTMAX B 1K against \"Supply and apply of waterproofing using BASF MasterSeal M866\". A polyurethane waterproofing membrane under the screed.",
+      "Meat item 3: no product in our range is set against it. 75mm of sand and cement with steel mesh is builders work, not a coating.",
+      "Meat item 4: no product in our range is set against it. Reinforcement steel, not a coating.",
+      "Meat item 5: offered BT-Crete SL against \"Supply and apply of Ucret HFl00 RT System @ 6mm\". Ucrete, spelled as the bill spells it. Our PU cement mortar is BT-Crete SL.",
+      "Meat item 6: offered BT-Crete SL against \"Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination\". Ucrete is a polyurethane cement screed for food processing floors. BT-Crete SL is ours: a PU cement mortar for the food industry, food processing and kitchens. It is the same product under a different name.",
+      "Meat item 6 is measured in lm, so the products’ per-m² cost was not applied; work that rate out by hand.",
+      "Meat item 7: no product in our range is set against it. A jointing system with a steel cover. We supply the coating, not the joint. Price it in or take it out."
+    ]
+  },
+  "4.BOQ and Spec - Meat and F&V Market floor.pdf": {
+    "title": "Replacement of Fruits and Vegetable & Meat Market Flooring",
+    "client": "Waterfront Market LLC",
+    "ref": "Tender ref 7089",
+    "items": 14,
+    "unread": 0,
+    "notes": [
+      "color to be approved after Mockup sample.",
+      "work will be executed in phases (4 to 8 phases).",
+      "vendor to provide all required temporary power, lighting..., etc. necessary to complete the work.",
+      "10 years warranty to be included."
+    ],
+    "boilerplateDropped": true,
+    "sections": [
+      {
+        "title": "Fruits and Vegetable: Removal of existing screed with carting away",
+        "priced": {
+          "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of waterproofing using BASF MasterSeal M866",
+        "priced": {
+          "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [
+          "**IBTMAX B 1K : Approx. 1,5 kg/m².",
+          "1K PU-bitumen resin, high thixotropy. Excellent mechanical properties. For difficult details and finishes with asphalt fabric membranes. High adhesion to bitumen finish. Root penetration resistant. EN-1504-2."
+        ],
+        "perM2": 20.91,
+        "applies": true
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of max 75mm screed with shutters using…",
+        "priced": {
+          "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of insitu concrete skirting 150mm high x…",
+        "priced": {
+          "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
+          "unit": "lm",
+          "qty": 588
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of Ucret HFl00 RT System @ 6mm",
+        "priced": {
+          "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
+          "unit": "sq.m",
+          "qty": 3659
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 10,5 kg/m² at 6 mm.",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 149.44,
+        "applies": true
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of 200 mm covered skirting using Ucrete RG…",
+        "priced": {
+          "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
+          "unit": "lm",
+          "qty": 588
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 7 kg/m².",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 99.62,
+        "applies": false
+      },
+      {
+        "title": "Fruits and Vegetable: Supply and apply of expansion joint according to the…",
+        "priced": {
+          "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
+          "unit": "item",
+          "qty": 1
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Removal of existing screed with carting away",
+        "priced": {
+          "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of waterproofing using BASF MasterSeal M866",
+        "priced": {
+          "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [
+          "**IBTMAX B 1K : Approx. 1,5 kg/m².",
+          "1K PU-bitumen resin, high thixotropy. Excellent mechanical properties. For difficult details and finishes with asphalt fabric membranes. High adhesion to bitumen finish. Root penetration resistant. EN-1504-2."
+        ],
+        "perM2": 20.91,
+        "applies": true
+      },
+      {
+        "title": "Meat: Supply and apply of max 75mm screed with shutters using…",
+        "priced": {
+          "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of insitu concrete skirting 150mm high x…",
+        "priced": {
+          "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
+          "unit": "lm",
+          "qty": 424.8
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of Ucret HFl00 RT System @ 6mm",
+        "priced": {
+          "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
+          "unit": "sq.m",
+          "qty": 2400
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 10,5 kg/m² at 6 mm.",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 149.44,
+        "applies": true
+      },
+      {
+        "title": "Meat: Supply and apply of 200 mm covered skirting using Ucrete RG…",
+        "priced": {
+          "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
+          "unit": "lm",
+          "qty": 424.8
+        },
+        "spec": [
+          "**BT-Crete SL : Approx. 7 kg/m².",
+          "Cementitious PU system. Thermal shock resistance and chemical resistance. Three liquid components (A+B+pigment) plus one mineral filler. Supplied non-pigmented, available in various colours."
+        ],
+        "perM2": 99.62,
+        "applies": false
+      },
+      {
+        "title": "Meat: Supply and apply of expansion joint according to the…",
+        "priced": {
+          "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
+          "unit": "item",
+          "qty": 1
+        },
+        "spec": [],
+        "perM2": null,
+        "applies": false
+      }
+    ],
+    "internal": [
+      "Fruits and Vegetable item 1: taking the old one off, site work rather than a coating we supply. Put a rate on it or take it out.",
+      "Fruits and Vegetable item 2: offered IBTMAX B 1K against \"Supply and apply of waterproofing using BASF MasterSeal M866\". A polyurethane waterproofing membrane under the screed.",
+      "Fruits and Vegetable item 3: no product in our range is set against it. 75mm of sand and cement with steel mesh is builders work, not a coating.",
+      "Fruits and Vegetable item 4: no product in our range is set against it. Reinforcement steel, not a coating.",
+      "Fruits and Vegetable item 5: offered BT-Crete SL against \"Supply and apply of Ucret HFl00 RT System @ 6mm\". Ucrete, spelled as the bill spells it. Our PU cement mortar is BT-Crete SL.",
+      "Fruits and Vegetable item 6: offered BT-Crete SL against \"Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination\". Ucrete is a polyurethane cement screed for food processing floors. BT-Crete SL is ours: a PU cement mortar for the food industry, food processing and kitchens. It is the same product under a different name.",
+      "Fruits and Vegetable item 6 is measured in lm, so the products’ per-m² cost was not applied; work that rate out by hand.",
+      "Fruits and Vegetable item 7: no product in our range is set against it. A jointing system with a steel cover. We supply the coating, not the joint. Price it in or take it out.",
+      "Meat item 1: taking the old one off, site work rather than a coating we supply. Put a rate on it or take it out.",
+      "Meat item 2: offered IBTMAX B 1K against \"Supply and apply of waterproofing using BASF MasterSeal M866\". A polyurethane waterproofing membrane under the screed.",
+      "Meat item 3: no product in our range is set against it. 75mm of sand and cement with steel mesh is builders work, not a coating.",
+      "Meat item 4: no product in our range is set against it. Reinforcement steel, not a coating.",
+      "Meat item 5: offered BT-Crete SL against \"Supply and apply of Ucret HFl00 RT System @ 6mm\". Ucrete, spelled as the bill spells it. Our PU cement mortar is BT-Crete SL.",
+      "Meat item 6: offered BT-Crete SL against \"Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination\". Ucrete is a polyurethane cement screed for food processing floors. BT-Crete SL is ours: a PU cement mortar for the food industry, food processing and kitchens. It is the same product under a different name.",
+      "Meat item 6 is measured in lm, so the products’ per-m² cost was not applied; work that rate out by hand.",
+      "Meat item 7: no product in our range is set against it. A jointing system with a steel cover. We supply the coating, not the joint. Price it in or take it out."
+    ]
+  }
+}

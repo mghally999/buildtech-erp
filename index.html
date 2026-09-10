@@ -8507,7 +8507,8 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me}){
             from:'scope',
             seed:{ project_name: d.parsed.title || '',
                    client_name:  d.parsed.client || '',
-                   notes:        d.notes || [] },
+                   notes:        d.notes || [],
+                   internal:     d.internal || [] },
             secs:d.secs, at:Date.now()}));
         }catch(e){}
         setScope(false); setOpenId('new');
@@ -9783,6 +9784,8 @@ const SCOPE_UNITS = {
   'kg':'kg','ltr':'ltr','l':'ltr','litre':'ltr','ton':'ton','tonne':'ton',
 };
 const scopeUnit = u => SCOPE_UNITS[String(u||'').trim().toLowerCase().replace(/\.$/,'')] || null;
+// a line measured by area, the only kind a per-square-metre cost can be put against
+const isAreaUnit = u => /m2|m²|sq\.?\s?m|sqm/i.test(String(u||''));
 
 /* Words that carry no meaning for matching. Kept short: over-filtering loses the very
    words that identify a product, and "coating" and "system" are worth keeping because
@@ -9827,8 +9830,9 @@ const UNIT_WORDS_CI = UNIT_WORDS.replace(/[a-zA-Z]/g,
 // A whole row on its own line: number, description, quantity, unit, in that order, with
 // the quantity and unit at the very end. Anchoring on the end is what lets the
 // description contain its own numbers, which it always does.
+/* The item number is 1, 1.1, 2.3a or A: every way a bill numbers its rows. */
 const SCOPE_ROW = new RegExp(
-  '^(\\d{1,3})[\\.\\)]?[\\s\\t]+([\\s\\S]*?)[\\s\\t]+([\\d][\\d,\\. ]*)[\\s\\t]+('
+  '^(\\d{1,3}(?:\\.\\d{1,2})*[a-z]?|[A-Z])[\\.\\)]?[\\s\\t]+([\\s\\S]*?)[\\s\\t]+([\\d][\\d,\\. ]*)[\\s\\t]+('
   + UNIT_WORDS + ')\\.?$', 'i');
 
 /* ── a bill that arrived as one paragraph ──────────────────────────────────────
@@ -9891,11 +9895,37 @@ function splitRunOn(text){
 }
 
 function parseScope(raw){
-  const out = { title:'', client:'', ref:'', items:[], notes:[], unread:[] };
+  const out = { title:'', client:'', ref:'', items:[], notes:[], unread:[], boilerplate:[] };
   const lines = String(raw||'').replace(/\r/g,'').split('\n');
-  let optional = false, inNotes = false, group = '';
+  let optional = false, inNotes = false, boiler = false, group = '';
 
-  const num = s => Number(String(s).replace(/[, ]/g,''));
+  /* "3,659" is three thousand and "424,8" is four hundred; "28.153,00" is Belgian for
+     twenty-eight thousand. A comma followed by one or two digits is a decimal point,
+     any other comma is a thousands mark. */
+  const num = s => { s = String(s).replace(/\s/g,'');
+    if(/,\d{1,2}$/.test(s)) s = s.replace(/\./g,'').replace(',','.');
+    else s = s.replace(/,/g,'');
+    return Number(s); };
+
+  /* The conditions under a bill. A numbered line, or an indented one, starts a note; an
+     unindented, unnumbered line continues the one above, which is what a note wrapped
+     across two lines of a PDF looks like. "1 - color… 2 - work…" on one line is several.
+     The legal boilerplate ("The Contractor shall execute the Works…") is kept aside: it
+     is the client's contract language, not a condition Build-Tech is offering. */
+  const isBoilerplate = t => (/^(?:the|any)\s+(?:contractor|employer|consultant|vendor|supplier|designer|tenderer)\b/i.test(t) && t.length > 60)
+                          || /contract documents|notwithstanding the foregoing|shall remain fully responsible/i.test(t);
+  const splitNotes = t => t.split(/(?:^|\s)\d{1,2}\s*[-–\.\)]\s*(?=\S)/).map(x => x.trim()).filter(Boolean);
+  const addNote = n => {
+    n = n.replace(/\s+/g,' ').trim(); if(!n) return;
+    // a PDF can run the last condition and the contract boilerplate into one line
+    const b = n.match(/(?:^|\.\s+)((?:the|any)\s+(?:contractor|employer|consultant|vendor|supplier|designer|tenderer)\b[\s\S]*)$/i);
+    if(b && b[1].length > 60){ out.boilerplate.push(b[1].trim()); n = n.slice(0, n.length - b[1].length).trim(); if(!n) return; }
+    const k = n.toLowerCase();
+    const i = out.notes.findIndex(e => { const ek = e.toLowerCase();
+      return ek === k || ek.startsWith(k) || k.startsWith(ek.slice(0, Math.min(ek.length, 40))); });
+    if(i < 0) out.notes.push(n);
+    else if(n.length > out.notes[i].length) out.notes[i] = n;   // the fuller reading wins
+  };
 
   lines.forEach(line => {
     const t = line.trim();
@@ -9903,8 +9933,14 @@ function parseScope(raw){
 
     // the headings a scope carries above the table
     let m;
-    if((m = t.match(/^(?:contract\s*title|title|subject)\s*[:\-]\s*(.+)$/i)))
-      { out.title  = m[1].trim(); return; }
+    if((m = t.match(/^(?:contract\s*title|title|subject)\s*[:\-]\s*(.+)$/i))){
+      // "…Market Flooring Tender ref.no : 7089" is two fields on one line of the DOCX
+      let tt = m[1];
+      const tr = tt.match(/\s*tender\s*(?:ref\.?(?:\s*no\.?)?|reference|no\.?)\s*[:\-]?\s*(.*)$/i);
+      if(tr){ tt = tt.slice(0, tr.index); const r = tr[1].replace(/^[\s:\-]+/,'').trim();
+              if(r && !out.ref) out.ref = 'Tender ref ' + r; }
+      out.title = tt.trim(); return;
+    }
 
     if((m = t.match(/^(?:project|entity)[^:]*name\s*[:\-]\s*(.+)$/i)))
       { out.client = m[1].trim(); return; }
@@ -9912,7 +9948,10 @@ function parseScope(raw){
        names its client, and it is how half of them do it. */
     if((m = t.match(/^(?:project|client|employer|customer)\s*[:\-]\s*(.+)$/i)))
       { if(!out.client) out.client = m[1].trim(); return; }
-    if(/^tender\s*(ref|reference|no)/i.test(t)) { out.ref = t.replace(/\s*:\s*$/,''); return; }
+    if(/^tender\s*(ref|reference|no)/i.test(t)) {
+      // "Tender ref.no  7089:" and "Tender ref.no : 7089" are the same field
+      const r = t.replace(/^tender\s*(?:ref\.?(?:\s*no\.?)?|reference|no\.?)\s*[:\-]?\s*/i,'').replace(/\s*:\s*$/,'').trim();
+      if(r && !out.ref) out.ref = 'Tender ref ' + r; return; }
     if(/^(brief\s+)?description\s*[:\-]?$/i.test(t))               return;
     if(/^project\s*(background|summary)/i.test(t))                 return;
 
@@ -9923,7 +9962,7 @@ function parseScope(raw){
        word. Reading only a bare "Note:" left the whole block sitting under lines it
        could not read, which is where Charles kept finding it. */
     if((m = t.match(/^(?:notes?|remarks?)\s*[:\-]\s*(.+)$/i)) && m[1].length > 12)
-      { inNotes = true; out.notes.push(m[1].trim()); return; }
+      { inNotes = true; boiler = false; splitNotes(m[1]).forEach(addNote); return; }
     if(/^page\s+\d+\s+of\s+\d+$/i.test(t))       return;              // a page footer
     if(/^no\.?\s+description/i.test(t))          return;              // the header row
     /* A header row in any wording or order. The old test only knew "No. Description",
@@ -9952,14 +9991,12 @@ function parseScope(raw){
     if(inNotes && SCOPE_ROW.test(t)) inNotes = false;
 
     if(inNotes){
-      // a numbered line starts a note; anything else continues the one above it, which
-      // is what a note that wrapped across two lines of a PDF looks like
-      if(/^\d+[\.\)]\s/.test(t)){
-        const n = t.replace(/^\d+[\.\)]\s*/,'').trim();
-        if(n) out.notes.push(n);
-      } else if(out.notes.length){
-        out.notes[out.notes.length-1] += ' ' + t;
-      } else if(t){ out.notes.push(t); }
+      if(isBoilerplate(t)){ boiler = true; out.boilerplate.push(t); return; }
+      const starts = /^\d{1,2}\s*[-–\.\)]\s*\S/.test(t) || /^[\s\u00a0]/.test(line);
+      if(boiler && !starts){ out.boilerplate[out.boilerplate.length-1] += ' ' + t; return; }
+      boiler = false;
+      if(starts || !out.notes.length) splitNotes(t).forEach(addNote);
+      else out.notes[out.notes.length-1] += ' ' + t;
       return;
     }
 
@@ -9970,10 +10007,12 @@ function parseScope(raw){
       const qty  = num(m[3]);
       if(unit && isFinite(qty)){
         out.items.push({
-          no: Number(m[1]),
+          no: parseFloat(m[1]) || out.items.length + 1,
+          label: m[1],
           text: m[2].replace(/\s+/g,' ').trim(),
           qty, unit, optional, group,
           layers: readLayers(m[2]),
+          thickness_mm: readThickness(m[2]),
         });
         return;
       }
@@ -10029,6 +10068,31 @@ function readLayers(text){
     if(name.length > 2) out.push({ coats: Number(m[1]), name });
   }
   return out;
+}
+
+/* "@ 6mm", "6 mm thick", "max 75mm screed": the thickness the bill asks for, in mm.
+   Only the forms that mean thickness; "150mm high x 100 mm width" is a size, not a
+   thickness, and "200 mm covered skirting" is a height. */
+function readThickness(text){
+  const t = String(text||'');
+  const m = t.match(/(?:@\s*|\bat\s+|\bmax\.?\s*|\bmin\.?\s*)(\d+(?:[.,]\d+)?)\s*mm\b/i)
+         || t.match(/(\d+(?:[.,]\d+)?)\s*mm\s*(?:thick|thk|thickness|dft)\b/i)
+         || t.match(/\bthickness\s*(?:of\s*)?(\d+(?:[.,]\d+)?)\s*mm\b/i);
+  if(!m) return null;
+  const v = Number(String(m[1]).replace(',','.'));
+  return v > 0 ? v : null;
+}
+
+/* What a product weighs per square metre per millimetre, read off its data sheet line
+   when that line gives its figure for a thickness: "7 kg/m² for 4mm final thickness" is
+   1.75 kg per mm. A bill asking for 6 mm is then 10.5 kg/m², not the 7 the catalogue
+   quotes for 4 mm. Null where the sheet gives no thickness. */
+function perMmOf(p){
+  const t = String(p.consumption_text||'').replace(/²/g,'2').replace(/–|—/g,'-');
+  const m = t.match(/([\d.,]+)(?:\s*-\s*([\d.,]+))?\s*kg\s*\/\s*m2\s*(?:for|at|per|@)\s*([\d.,]+)\s*mm/i);
+  if(!m) return null;
+  const kg = numOf(m[2]||m[1]), mm = numOf(m[3]);
+  return kg > 0 && mm > 0 ? kg/mm : null;
 }
 
 /* ── matching ──────────────────────────────────────────────────────────────────
@@ -10209,9 +10273,16 @@ function matchItem(item, match){
 function buildDraft(parsed, matched, ctx){
   const prod = id => (ctx.products||[]).find(p => p.id === id) || null;
   const money = n => (n==null || !isFinite(n)) ? '' : Math.round(n*100)/100;
+  /* What the reader has to tell Charles: which items it could not price, what it offered
+     against what, where a thickness changes the consumption. It goes into the meeting
+     notes, which never print. It used to go in as spec notes, and six of the fourteen
+     sections of the market bill would have gone to the client reading "Site work rather
+     than a coating we supply. Put a rate on the line above and delete this note". */
+  const internal = [];
 
   const secs = matched.map((it, i) => {
     const lines = [];
+    const where = (it.group ? shortGroup(it.group) + ' ' : '') + 'item ' + (it.label || it.no);
 
     const push = (o) => lines.push({
       id: 'l' + Date.now() + '-' + i + '-' + lines.length + '-' + Math.random().toString(36).slice(2,6),
@@ -10219,38 +10290,35 @@ function buildDraft(parsed, matched, ctx){
       is_spec_note:false, is_bold:false, is_provisional:false,
       position: lines.length + 1, ...o });
 
-    // the priced line comes first and carries the quantity
-    push({ description:'Supply and Install', unit: it.unit, quantity: it.qty });
+    /* The priced line carries the bill's own words and the quantity, so a consultant
+       laying the quotation beside the BOQ finds every item. The section title stays
+       short; the wording lives on the line. */
+    push({ description: it.text, unit: it.unit, quantity: it.qty });
 
-    /* A section that cannot be priced still has to read like a section. It gets ONE
-       line saying what is missing and what to do about it, not a paragraph of warnings
-       per layer: the draft is a document that goes to a client once the rates are in,
-       and Charles should be able to look down it without wading. */
+    // A section that cannot be priced keeps its line, with the rate blank, and the
+    // reason goes inside. The editor counts the sections still without a price.
     if(it.works){
-      push({ is_spec_note:true, is_bold:true, description:'To be priced by us.' });
-      push({ is_spec_note:true, description:
-        'Site work rather than a coating we supply. Put a rate on the line above and '
-        + 'delete this note before the quotation goes out.' });
+      internal.push(where + ': ' + it.works + ', site work rather than a coating we supply. '
+        + 'Put a rate on it or take it out.');
       return finishSection(it, i, lines);
     }
 
     const missing = it.parts.filter(x => !x.pick || !x.pick.product_id);
     if(missing.length === it.parts.length){
-      const why = (it.gaps && it.gaps[0] && it.gaps[0].note)
+      // the layer's own reason first ("75mm of sand and cement… is builders work"), the
+      // item-level gap only when the layer has none
+      const why = (missing[0].pick && missing[0].pick.note)
+               || (it.gaps && it.gaps[0] && it.gaps[0].note)
                || (it.gaps && it.gaps[0] && it.gaps[0].why) || '';
-      push({ is_spec_note:true, is_bold:true, description:'To be priced by us.' });
-      push({ is_spec_note:true, description: why
-        || 'No product in our range has been set against this item yet. Either choose '
-           + 'one in the catalogue, buy the specified material in, or take the item out.' });
+      internal.push(where + ': no product in our range is set against it. '
+        + (why || 'Choose one in the catalogue, buy the specified material in, or take the item out.'));
       return finishSection(it, i, lines);
     }
 
     it.parts.forEach(part => {
       const pk = part.pick;
       if(!pk || !pk.product_id){
-        push({ is_spec_note:true, description:'' });
-        push({ is_spec_note:true, is_bold:true,
-               description: part.label + ' — to be priced by us.' });
+        internal.push(where + ': "' + part.label + '" has no product against it; price that layer by hand.');
         return;
       }
       const p = prod(pk.product_id);
@@ -10259,23 +10327,40 @@ function buildDraft(parsed, matched, ctx){
 
       const cov = (p.coverage_max ?? p.coverage_min);
       const unit = String(p.coverage_unit||'').toLowerCase();
-      const kg = cov==null ? null
-               : unit.startsWith('g/')  ? Number(cov)/1000
-               : unit.startsWith('kg/') ? Number(cov) : null;
+      let kg = cov==null ? null
+             : unit.startsWith('g/')  ? Number(cov)/1000
+             : unit.startsWith('kg/') ? Number(cov) : null;
       const coats = part.coats || 1;
+      /* "@ 6mm" changes the consumption. Where the data sheet gives its figure for a
+         thickness the catalogue figure is scaled; where it does not, the catalogue figure
+         stands and the note inside says to check it. */
+      let at = '';
+      if(it.thickness_mm){
+        const perMm = perMmOf(p);
+        if(perMm){ kg = round2(perMm * it.thickness_mm); at = ' at ' + String(it.thickness_mm).replace('.',',') + ' mm'; }
+        else internal.push(where + ' is specified at ' + it.thickness_mm + ' mm; ' + p.name
+          + (kg!=null ? '\u2019s catalogue figure of ' + round2(kg) + ' kg/m² is not given per mm, so check the consumption.'
+                      : ' has no consumption in the catalogue.'));
+      }
 
       push({ is_spec_note:true, is_bold:true,
              description: p.name + (kg!=null
-               ? ' : Approx. ' + String(round2(kg*coats)).replace('.',',') + ' kg/m²'
+               ? ' : Approx. ' + String(round2(kg*coats)).replace('.',',') + ' kg/m²' + at
                  + (coats>1 ? ' over ' + coats + ' coats' : '') + '.'
                : (coats>1 ? ' : ' + coats + ' coats.' : '.')) });
-      const blurb = (p.description || p.application || '').trim();
+      let blurb = (p.description || p.application || '').trim();
+      // a blurb that opens with the product's own name would be costed a second time
+      if(blurb && normName(blurb).startsWith(normName(p.name)))
+        blurb = blurb.slice(p.name.length).replace(/^[\s:,\-–]+/,'').replace(/^[a-z]/, c => c.toUpperCase());
       if(blurb) push({ is_spec_note:true, description: blurb });
       if(pk.kind === 'equivalent' && pk.note)
-        push({ is_spec_note:true,
-               description: 'Offered against ' + part.label + '. ' + pk.note });
-
+        internal.push(where + ': offered ' + p.name + ' against "' + part.label + '". ' + pk.note);
     });
+
+    // a per-square-metre cost cannot be put against a line measured in metres or as an item
+    if(!isAreaUnit(it.unit) && lines.some(l => l.is_bold))
+      internal.push(where + ' is measured in ' + it.unit + ', so the products\u2019 per-m² cost was not '
+        + 'applied; work that rate out by hand.');
 
     /* Deliberately not priced here. The editor already works a section's cost out from
        its bold spec notes, against the catalogue and the margin in Settings, and that is
@@ -10285,7 +10370,7 @@ function buildDraft(parsed, matched, ctx){
     return finishSection(it, i, lines);
   });
 
-  return { secs, notes: parsed.notes || [] };
+  return { secs, notes: parsed.notes || [], internal };
 }
 
 function finishSection(it, i, lines){
@@ -10460,7 +10545,7 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
   const create = () => {
     const chosen = withPicks();
     const draft = buildDraft(read.parsed, chosen, {products, costPerKg, sellFrom});
-    done({ parsed: read.parsed, secs: draft.secs, notes: draft.notes });
+    done({ parsed: read.parsed, secs: draft.secs, notes: draft.notes, internal: draft.internal });
   };
 
   if(!read) return html`
@@ -10901,7 +10986,11 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
         if(l.is_spec_note) return l;
         if(autoDone.current.has(l.id)) return l;
         const blankCost = l.cost_rate===''||l.cost_rate==null;
-        const c = blankCost ? (fromSpec.any ? round2(fromSpec.perM2) : round2(lineOwnCost(l)))
+        /* The products' cost is per square metre. Against a line measured in metres or
+           as an item it is the wrong number by a long way: a 200 mm skirting was being
+           costed as if every metre of it were a square metre. */
+        const c = blankCost ? (fromSpec.any && isAreaUnit(l.unit) ? round2(fromSpec.perM2)
+                                                                   : round2(lineOwnCost(l)))
                             : nz(l.cost_rate);
         if(blankCost && !(c>0)) return l;      // nothing to offer, so leave it alone
         const blankSell = l.sell_rate===''||l.sell_rate==null||nz(l.sell_rate)===0;
@@ -10955,6 +11044,16 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
        currency, the VAT rate, the office and the validity are decided here, from the
        office being worked in, and a scope of works knows nothing about any of that. */
     const fromScope = draft && draft.from === 'scope' && draft.secs;
+    /* "Waterfront Market LLC" on the bill is a client already on the books nine times
+       out of ten. Matched on the name with the legal suffix and punctuation set aside. */
+    const clientKey = n => String(n||'').toLowerCase()
+      .replace(/\b(?:l\.?l\.?c|ltd|limited|co|company|inc|plc|b\.?v|n\.?v|s\.?a|s\.?l|fze|fzco|llp)\b\.?/g,'')
+      .replace(/[^a-z0-9]+/g,' ').trim();
+    const matchClient = name => { const k = clientKey(name); if(k.length < 4) return null;
+      const hit = (clients||[]).find(c => clientKey(c.name) === k)
+               || (clients||[]).find(c => { const ck = clientKey(c.name);
+                    return ck.length >= 4 && (ck.startsWith(k) || k.startsWith(ck)); });
+      return hit ? hit.id : null; };
     if(isNew){
       // whatever else happens, never overwrite work already on the screen
       if(qRef.current) return;
@@ -10973,9 +11072,12 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
             language:  home?home.default_lang:'en',
             vat_rate: home?Number(home.vat_rate):settingNumber(cfgv('vat_rate'), 0.05),
             vat_applies:true,
-            remarks:cfgv('quote_remarks')||'',meeting_notes:'',
+            remarks:cfgv('quote_remarks')||'',
+            // the reader's own commentary goes here, where it never prints
+            meeting_notes: fromScope ? ((draft.seed&&draft.seed.internal)||[]).join('\n') : '',
             ...(fromScope ? {
                   project_name: (draft.seed&&draft.seed.project_name)||'',
+                  client_id: matchClient(draft.seed&&draft.seed.client_name),
                   /* The conditions that came with the scope go into the remarks, which is
                      the field that prints on the sheet, rather than into a banner nobody
                      can act on. The warranty and the spare drums are terms of the job. */
@@ -10990,10 +11092,14 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
         setSecs(draft.secs);
         const who = draft.seed && draft.seed.client_name;
         const notes = (draft.seed && draft.seed.notes) || [];
+        const inside = (draft.seed && draft.seed.internal) || [];
         setRestored('Built from the scope of works you pasted'
-          + (who ? ', which reads as ' + who + '\'s job' : '') + '. '
+          + (who ? ', which reads as ' + who + '\'s job'
+                   + (initial.client_id ? ', a client on the books' : '') : '') + '. '
           + (notes.length ? 'Its ' + notes.length + ' condition'
               + (notes.length===1?' is':'s are') + ' in the remarks at the bottom. ' : '')
+          + (inside.length ? 'The reader left ' + inside.length + ' '
+              + (inside.length===1?'note':'notes') + ' for you under Meeting notes; none of that prints. ' : '')
           + 'Check every rate before you send it. Nothing has been saved yet.');
       } else { setSecs([]); savedRef.current = JSON.stringify({q:initial, secs:[]}); }
       return;
@@ -11164,6 +11270,9 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
   const printTotal = printNet + printVat;
   const anyCost=priced.some(l=>l.cost_rate!==''&&l.cost_rate!=null);
   const belowCost=priced.filter(l=>l.cost_rate!=null&&l.cost_rate!==''&&nz(l.sell_rate)<nz(l.cost_rate));
+  // the sections whose priced line has no rate yet: the sheet would print them blank
+  const unpriced=secs.filter(s=>s.lines.some(l=>!l.is_spec_note && !l.is_costing
+                             && (l.sell_rate===''||l.sell_rate==null||nz(l.sell_rate)===0)));
   // When you are matching somebody else's price rather than setting your own, the
   // number you need is how far down you can go before the job stops being worth doing.
   const floorPrice = costTotal>0 ? costTotal/(1-floorPct/100) : 0;
@@ -11256,7 +11365,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
     if(n!==i) return s;
     const r=sectionCost(s);
     if(!r.any) return s;
-    return {...s, lines:s.lines.map(l=> l.is_spec_note ? l
+    return {...s, lines:s.lines.map(l=> (l.is_spec_note || !isAreaUnit(l.unit)) ? l
       : {...l, cost_rate:round2(r.perM2),
          // price it too, unless a price has already been decided by hand
          sell_rate:(l.sell_rate===''||l.sell_rate==null||onMargin(l))
@@ -11422,6 +11531,9 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
       <span class="qref">${q.reference ? q.reference+(q.revision?' '+q.revision:'')
         : html`<span class="muted" style=${{fontFamily:'var(--fb)',fontWeight:400,fontSize:'14px'}}>
             ${_t('New quotation, number issued when you save')}</span>`}</span>
+      ${unpriced.length>0 && html`<span class="muted needprice" style=${{fontSize:'13px'}}>${
+        unpriced.length+' of '+secs.length+' '+plural(secs.length,'section')+' still '
+        +(unpriced.length===1?'needs':'need')+' a price'}</span>`}
       <div class="sp" style=${{display:'flex',gap:'8px'}}>
         <button class="btn sec" onClick=${()=>setShipOpen(v=>!v)} disabled=${!q.id}
           title=${q.id?'Work the cargo out of this quotation and ask a forwarder for a rate'
@@ -11676,12 +11788,16 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
           <button class="btn sec sm" title="An empty line, for spacing on the printed sheet"
             onClick=${()=>addLine(i,'blank')}>${_t("Add blank row")}</button>
           ${(()=>{ const r=sectionCost(s); if(!r.any && !r.missed.length) return '';
+            const notArea=s.lines.filter(l=>!l.is_spec_note && !l.is_costing && !isAreaUnit(l.unit));
             return html`<${Frag}>
               <button class="btn sec sm sp" onClick=${()=>costSection(i)}
                 title=${'Price the products named in this section: '+r.used.join(', ')}>${
                 _t('Cost it from the specification')}</button>
               <span class="muted" style=${{alignSelf:'center',fontSize:'12px'}}>${
                 (r.any ? AED2(r.perM2, qCur)+' / m² from '+r.used.join(', ') : '')
+                + (r.any && notArea.length ? '. Not put against the line in '
+                    + [...new Set(notArea.map(l=>l.unit||'no unit'))].join(', ')
+                    + ', which is not per square metre; that rate goes in by hand' : '')
                 + (r.missed.length ? (r.any?'. ':'')+'Cannot price '+r.missed.join('; ') : '')
                 }</span></${Frag}>`;})()}
         </div>
@@ -13140,13 +13256,17 @@ function Readiness({settings,go}){
       // the storage certificate we are waiting on, and who it sits with
       sb.from('approvals').select('title,status,handled_by,next_action,warehouse_id')
         .eq('kind','warehouse_storage')]);
+    // draft quotations, with their sections and lines, for the ones nobody has priced
+    const qd=await sb.from('quotations')
+      .select('id,reference,quotation_sections(id,quotation_lines(sell_rate,is_spec_note,is_costing))')
+      .eq('status','draft');
     let docs=[];
     if((sh.data||[]).length){
       const {data}=await sb.from('shipment_documents').select('shipment_id');
       docs=data||[];
     }
     setD({people:(pf.data||[]).length, banks:(bk.data||[]).length,
-          hasStock:(sd.data||[]).length>0,
+          hasStock:(sd.data||[]).length>0, drafts:(qd&&qd.data)||[],
           approvals:(ap.data||[]).filter(x=>x.needs_attention).length,
           blocked:bl.data||[], whCert:wa.data||[],
           shipmentsNoDocs:(sh.data||[]).filter(x=>!docs.some(y=>y.shipment_id===x.id))});
@@ -13190,6 +13310,18 @@ function Readiness({settings,go}){
     if(cert && cert.next_action)
       add(true,'What we are waiting for at '+w.name,
           cert.next_action,'Open Approvals','approvals');
+  });
+
+  // a draft the scope reader built has sections nobody has priced; the sheet would print
+  // them with an empty rate and leave them out of the total
+  (d.drafts||[]).forEach(q=>{
+    const secsQ=q.quotation_sections||[];
+    const bare=secsQ.filter(x=>(x.quotation_lines||[]).some(l=>!l.is_spec_note && !l.is_costing
+                              && (l.sell_rate==null || nz(l.sell_rate)===0)));
+    if(bare.length) add(false, (q.reference||'A draft quotation')+': '+bare.length+' of '+secsQ.length
+        +' '+plural(secsQ.length,'section')+' still '+(bare.length===1?'needs':'need')+' a price',
+        'The sheet prints those with an empty rate and leaves them out of the total.',
+        'Open it and price them','quotations');
   });
 
   if(!cfg('trn').trim())

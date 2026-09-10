@@ -336,6 +336,45 @@ checks.po_flow = async page => {
   }
 };
 
+// Phase 5 C: the scope reader's draft carries the bill's words, keeps the reader's notes inside, knows the client.
+checks.scope_draft = async page => {
+  const text = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs', 'schema', 'scope_doc.json'), 'utf8'))[0].extracted;
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [cl] = await sql(`insert into clients (name, kind, office_id, notes) values ('Waterfront Market LLC', 'client', '${dxb.id}', 'ZZTEST') returning id`);
+  const before = new Set((await sql("select id from quotations")).map(r => r.id));
+  const values = () => page.evaluate(() => [...document.querySelectorAll('input[type=text], textarea')].map(x => x.value));
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(500);
+    await go(page, 'Quotations'); await page.click('button:has-text("Read a scope")'); await settle(1500);
+    await page.fill('textarea.scope-in', text); await page.click('button:has-text("Read it")'); await settle(3000);
+    await page.click('button:has-text("Create the draft")'); await page.waitForSelector('.needprice', { timeout: 20000 }); await settle(2500);
+    const head = await page.locator('.needprice').textContent();
+    assert(/10 of 14 sections still need a price/.test(head), `the editor says how many sections still need a price (saw "${head}")`);
+    const banner = (await page.locator('.flagbox').allTextContents()).join(' ');
+    assert(/a client on the books/.test(banner) && /none of that prints/.test(banner), `the banner says the client was matched and the reader's notes are inside (saw "${banner.slice(0, 220)}")`);
+    assert((await page.locator('.field:has(> label:has-text("Client")) select').first().inputValue()) === cl.id, 'the client on the bill is the client on the quotation');
+    const vals = await values();
+    assert(vals.some(v => /item 1: taking the old one off/.test(v) && /offered IBTMAX B 1K/.test(v)), "the reader's notes are in the meeting notes");
+    assert(!vals.some(v => /To be priced by us|Put a rate on the line above|Offered against/.test(v)), 'no line carries the reader\'s commentary');
+    assert(vals.some(v => /^Removal of existing screed with carting away/.test(v)), "the priced line carries the bill's own words");
+    assert(vals.some(v => /BT-Crete SL : Approx\. 10,5 kg\/m² at 6 mm\./.test(v)), 'the 6 mm item is costed at 6 mm');
+    await page.click('button:has-text("Save")'); await settle(4000);
+    const [q] = await sql(`select id, reference, client_id, project_name, meeting_notes from quotations where id not in (${[...before].map(x => `'${x}'`).join(',') || "'00000000-0000-0000-0000-000000000000'"})`);
+    assert(q && q.client_id === cl.id && /Replacement of Fruits and Vegetable/.test(q.project_name), `the saved quotation has the client and the title (saw ${q && q.reference})`);
+    assert(q && /taking the old one off/.test(q.meeting_notes) && /is measured in lm/.test(q.meeting_notes), 'and the reader\'s notes saved as meeting notes');
+    const lines = q ? await sql(`select l.description, l.is_spec_note, l.unit, l.quantity, l.sell_rate from quotation_lines l join quotation_sections s on s.id=l.section_id where s.quotation_id='${q.id}'`) : [];
+    const priced = lines.filter(l => !l.is_spec_note);
+    assert(priced.length === 14, `14 priced lines saved (saw ${priced.length})`);
+    assert(priced.filter(l => l.unit === 'lm').every(l => l.sell_rate == null), 'the metre-run lines were left unpriced rather than priced per square metre');
+    assert(priced.filter(l => Number(l.sell_rate) > 0).length === 4, `the four square-metre sections with a product were priced (saw ${priced.filter(l => Number(l.sell_rate) > 0).length})`);
+    assert(!lines.some(l => /Offered against|To be priced by us|delete this note/.test(l.description)), 'nothing internal went into the printed lines');
+  } finally {
+    const after = await sql("select id from quotations");
+    for (const r of after) if (!before.has(r.id)) await sql(`delete from quotations where id='${r.id}'`);
+    await sql(`delete from clients where id='${cl.id}'`);
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
