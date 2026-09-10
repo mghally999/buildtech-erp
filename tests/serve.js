@@ -26,7 +26,9 @@ http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (p === '/' ) p = '/index.html';
   if (p === '/config.js') p = '/config.local.js';
-  if (p === '/sw.js') { res.writeHead(404); return res.end(); }   // no service worker in tests
+  // The service worker is only served when a test asks for it (SW=1), because a cached
+  // shell makes every other test harder to reason about.
+  if (p === '/sw.js' && process.env.SW !== '1') { res.writeHead(404); return res.end(); }
   const file = path.join(root, p);
   if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404); return res.end('not found');

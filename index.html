@@ -1916,7 +1916,12 @@ main{position:relative}
 const {useState,useEffect,useCallback,useRef,useMemo} = React;
 const html = htm.bind(React.createElement);
 const Frag = React.Fragment;
-const sbRaw = supabase.createClient(BT_CONFIG.SUPABASE_URL, BT_CONFIG.SUPABASE_KEY);
+/* These are the library's own defaults, written out so that the next time somebody asks
+   "where does the session live and does it refresh itself" the answer is on this line and
+   not three files deep in vendor/. The session sits in localStorage under
+   sb-<project ref>-auth-token and is renewed before it runs out. */
+const sbRaw = supabase.createClient(BT_CONFIG.SUPABASE_URL, BT_CONFIG.SUPABASE_KEY,
+  {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}});
 
 /* ── one office at a time ─────────────────────────────────────────────────────────
    Dubai and Bruges are two companies. Different customers, different books, different
@@ -1946,15 +1951,27 @@ const OFFICE_OWNED = new Set([
 ]);
 let OFFICE_ID = null;
 
+/* One more try on a 401. In the burst of requests a screen fires as it opens, one can
+   occasionally leave before the library has put the token on it; it comes back 401 with
+   no rows, and the screen shows nothing where there is something. Asking again after the
+   session has been confirmed costs a few hundred milliseconds and nothing else. */
+const retryOnce = b => {
+  const run = b.then.bind(b);
+  b.then = (ok, bad) => run(r => (r && r.error && r.status === 401)
+      ? sbRaw.auth.getSession().then(() => run(x => x)) : r).then(ok, bad);
+  return b;
+};
+
 const sb = {
   auth: sbRaw.auth,
   storage: sbRaw.storage,
   rpc: (...a) => sbRaw.rpc(...a),
   from(table){
     const q = sbRaw.from(table);
-    if(!OFFICE_ID || !OFFICE_OWNED.has(table)) return q;
+    const scoped = !!OFFICE_ID && OFFICE_OWNED.has(table);
     const sel = q.select.bind(q);
-    q.select = (...a) => sel(...a).eq('office_id', OFFICE_ID);
+    q.select = (...a) => retryOnce(scoped ? sel(...a).eq('office_id', OFFICE_ID) : sel(...a));
+    if(!scoped) return q;
     const ins = q.insert.bind(q);
     q.insert = (rows,...a) => ins(Array.isArray(rows)
       ? rows.map(r => ({office_id:OFFICE_ID, ...r}))
@@ -3009,8 +3026,10 @@ function Operations({go,settings}){
       q('commitments'), q('document_watch'), q('visit_funnel'), q('requirement_watch'),
       sb.from('activity_log').select('*').order('happened_at',{ascending:false}).limit(6),
     ]);
-    const e=[inq,pj,iv,cp].map(x=>x.error).find(Boolean);
-    if(e) setErr(e.message);
+    // Every one of these feeds a number on this screen, so a failure on any of them has
+    // to be said, or a vital quietly reads zero and nobody knows to doubt it.
+    const e=[inq,pj,pt,iv,pay,cp,ex,ap,sp,sh,po,pot,cm,dw,vf,rw,al].map(x=>x&&x.error).find(Boolean);
+    if(e) setErr('Part of this screen could not be loaded: '+e.message);
     setLog(al.data||[]);
     setD({inq:inq.data||[],pj:pj.data||[],pt:pt.data||[],iv:iv.data||[],pay:pay.data||[],
           cp:cp.data||[],ex:ex.data||[],ap:ap.data||[],sp:sp.data||[],sh:sh.data||[],
@@ -13530,13 +13549,24 @@ function App(){
      wiped it. Recovery links can also announce themselves through an event, so both are
      watched: whichever arrives first is enough. */
   const LINK = (typeof window!=='undefined' && window.__BT_LINK) || {type:'',err:''};
-  const [pwLink,setPwLink]=useState(
-    LINK.type==='recovery' || LINK.type==='invite' || LINK.type==='signup');
+  /* The link's type is in the URL for one page load only. A refresh halfway through
+     choosing a password wiped it, the gate vanished, and the person walked in with no
+     password at all; the sign-in that failed a week later looked like the app had signed
+     them out. So the fact is kept on the machine until a password has actually been
+     saved, and cleared again on sign-out so the next person is not asked for one. */
+  const [pwLink,setPwLink]=useState(()=>{
+    const fromUrl = LINK.type==='recovery' || LINK.type==='invite' || LINK.type==='signup';
+    try{
+      if(fromUrl) localStorage.setItem('bt-needs-password','1');
+      return fromUrl || localStorage.getItem('bt-needs-password')==='1';
+    }catch(e){ return fromUrl; }
+  });
   const [pwDone,setPwDone]=useState(false);
   const needPassword = pwLink && !pwDone;
   useEffect(()=>{
     const {data:sub}=sb.auth.onAuthStateChange((e)=>{
-      if(e==='PASSWORD_RECOVERY') setPwLink(true);
+      if(e==='PASSWORD_RECOVERY'){ setPwLink(true); try{ localStorage.setItem('bt-needs-password','1'); }catch(x){} }
+      if(e==='SIGNED_OUT'){ setPwLink(false); setPwDone(false); try{ localStorage.removeItem('bt-needs-password'); }catch(x){} }
     });
     return ()=>sub.subscription.unsubscribe();
   },[]);
@@ -13664,7 +13694,8 @@ function App(){
   if(needPassword) return html`<${SetPassword}
     email=${session.user && session.user.email}
     invite=${LINK.type === 'invite' || LINK.type === 'signup'}
-    done=${()=>{ setPwDone(true); try{ history.replaceState(null,'',location.pathname); }catch(e){} }}/>`;
+    done=${()=>{ setPwDone(true);
+                 try{ localStorage.removeItem('bt-needs-password'); history.replaceState(null,'',location.pathname); }catch(e){} }}/>`;
 
   const rate = Number(settings.find(s=>s.key==='eur_aed_rate')?.value || 4.27);
 
