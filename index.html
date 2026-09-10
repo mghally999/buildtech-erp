@@ -6105,8 +6105,11 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
   const load=useCallback(async()=>{
     const [po,ln]=await Promise.all([
       sb.from('purchase_orders').select('*').eq('id',id).single(),
-      sb.from('purchase_order_lines').select('*, products(name,unit_label)').eq('po_id',id).order('position')]);
-    if(po.error) setErr(po.error.message);
+      sb.from('purchase_order_lines').select('*, products(name)').eq('po_id',id).order('position')]);
+    // Both answers are read. The lines used to ask for a column the catalogue does not
+    // have, the whole query was refused, and the refusal was thrown away: every order
+    // opened with nothing on it and said so with a straight face.
+    const e=po.error||ln.error; if(e) setErr(e.message);
     setO(po.data); setLines(ln.data||[]);
     // the catalogue, so a name on a supplier's proforma can be matched to our product and
     // receiving still moves the right stock
