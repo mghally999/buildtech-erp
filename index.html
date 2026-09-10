@@ -338,6 +338,7 @@
   font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:1.2px;padding:5px 9px}
 .offbtn:hover{color:var(--ink)}
 .offnote{font-size:11px;color:var(--ink-3);margin-left:8px;white-space:nowrap}
+.flowrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .offbtn.on{background:var(--brand);color:#fff}
 /* This used to be hidden on a phone. It should not be: it decides whether every figure
    on the screen is dirhams or euros, and Chris is the one most likely to be looking at
@@ -1953,6 +1954,8 @@ const OFFICE_OWNED = new Set([
 let OFFICE_ID = null;
 // the person's own office, where a record made in the company view is filed
 let MY_OFFICE_ID = null;
+// and their role, for what the screen offers; the database decides what it allows
+let MY_ROLE = null;
 
 /* Payments have no office of their own; the invoice they settle has. Read them through
    the invoice, and in a single-office view keep to that office, or the Dubai chart shows
@@ -3143,6 +3146,12 @@ function Operations({go,settings}){
   [...new Set(d.po.filter(x=>x.expected_on&&x.expected_on<t).map(x=>x.reference))]
     .forEach(r=>push('md','Order '+r+' is past its expected date',
       'Chase the supplier or move the date',['orders']));
+  // an order waiting for approval is a job for an owner and a wait for everyone else
+  d.pot.filter(x=>x.status==='pending_approval').forEach(x=>push('md',
+    'Order '+x.reference+' is waiting for approval',
+    MY_ROLE==='owner' ? 'Approve it, or send it back to be changed'
+                      : 'An owner has to approve it before it goes to the supplier',
+    ['orders',x.po_id]));
   (d.rw||[]).filter(r=>r.has_expired).forEach(r=>push('hi',
     r.title+' has gone void',
     'Expired '+fmtDate(r.expires_on)+'. '+r.approval_title+' cannot finish without it, so it '
@@ -5559,11 +5568,12 @@ function CorrespondencePanel({clientId,quotationId,poId,heading}){
    stopped: a shipment appeared later with no link to what was ordered, and stock after
    that with no link to the shipment. An order is a commitment, not a cost, so it stays
    out of Money out and out of the partner ledger until the supplier invoices. */
-const POSTATUS=[['draft','Draft'],['sent','Sent'],['confirmed','Confirmed'],
+const POSTATUS=[['draft','Draft'],['pending_approval','Waiting for approval'],
+                ['approved','Approved'],['sent','Sent'],['confirmed','Confirmed'],
                 ['part','Part received'],['received','Received'],['cancelled','Cancelled']];
 const poLabel=v=>(POSTATUS.find(x=>x[0]===v)||[v,v])[1];
 const poPill=v=>v==='received'?'won':v==='cancelled'?'lost'
-              :v==='part'?'quoted':v==='draft'?'lost':'inquiry';
+              :v==='part'||v==='pending_approval'?'quoted':v==='draft'?'lost':'inquiry';
 const PO_DOC_TYPES=[['proforma','Proforma invoice'],['order','Our purchase order'],
                     ['invoice','Supplier invoice'],['packing','Packing list'],
                     ['email','Email or message'],['other','Other']];
@@ -5573,6 +5583,7 @@ function Orders({rate,focus,clearFocus}){
   const [open,setOpen]=useState(null); const [neu,setNeu]=useState(false);
   const [quotes,setQuotes]=useState([]); const [projects,setProjects]=useState([]);
   const [whs,setWhs]=useState([]); const [err,setErr]=useState('');
+  const [view,setView]=useState('all');   // which orders the list shows
   useEffect(()=>{ if(focus){
     if(focus==='new') setNeu(true); else setOpen(focus);
     clearFocus&&clearFocus(); } },[focus]);
@@ -5600,6 +5611,13 @@ function Orders({rate,focus,clearFocus}){
   const live=rows.filter(r=>!['received','cancelled'].includes(r.status));
   const onOrder=live.reduce((s,r)=>s+nz(tot[r.id]?.value_aed),0);
   const late=live.filter(r=>r.expected_on && r.expected_on<today());
+  const waiting=rows.filter(r=>r.status==='pending_approval');
+  const VIEWS=[['all','All'],
+               ['pending','Waiting for approval'+(waiting.length?' ('+waiting.length+')':'')],
+               ['open','Open'],['received','Received']];
+  const shown=rows.filter(r=>view==='pending' ? r.status==='pending_approval'
+                           : view==='open'    ? !['received','cancelled'].includes(r.status)
+                           : view==='received'? r.status==='received' : true);
 
   return html`
     ${err && html`<div class="err">${err}</div>`}
@@ -5616,14 +5634,19 @@ function Orders({rate,focus,clearFocus}){
         <div class="s">${rows.filter(r=>r.status==='received').length} fully received</div></div>
     </div>
 
+    <div class="subnav">
+      ${VIEWS.map(([k,l])=>html`<button key=${k} class=${view===k?'on':''}
+        onClick=${()=>setView(k)}>${l}</button>`)}
+    </div>
+
     <div class="panel">
       <div class="panel-head"><h2>${_t("Purchase orders")}</h2>
         <span class="sp muted">Newest first</span></div>
-      ${rows.length ? html`<div class="tw"><table>
+      ${shown.length ? html`<div class="tw"><table>
         <thead><tr><th>${_t("Order")}</th><th>${_t("Supplier")}</th><th>${_t("For")}</th><th>${_t("Status")}</th>
           <th class="n">${_t("Value")}</th><th class="n">${_t("Received")}</th><th>${_t("Expected")}</th>
           <th class="n">${_t("Files")}</th></tr></thead>
-        <tbody>${rows.map(r=>{const t=tot[r.id]||{};
+        <tbody>${shown.map(r=>{const t=tot[r.id]||{};
           return html`<tr key=${r.id} class="clickable" onClick=${()=>setOpen(r.id)}>
             <td><b>${r.reference}</b>${r.supplier_ref?html`<div class="m muted">${r.supplier_ref}</div>`:null}</td>
             <td class="muted">${r.supplier}</td>
@@ -5635,6 +5658,8 @@ function Orders({rate,focus,clearFocus}){
               ${fmtDate(r.expected_on)||'—'}</td>
             <td class="n muted">${t.document_count||0}</td>
           </tr>`;})}</tbody></table></div>`
+        : rows.length ? html`<div class="empty">${view==='pending'
+            ? 'Nothing is waiting for approval.' : 'Nothing to show under this filter.'}</div>`
         : html`<div class="empty">No orders yet. "New order" creates one, and it can be built
             straight from a quotation so the quantities come off the take-off rather than
             being typed again.</div>`}
@@ -6170,6 +6195,7 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
   const [pfBusy,setPfBusy]=useState('');       // reading their proforma
   const [pf,setPf]=useState(null);             // what it said, before anything is written
   const [cat,setCat]=useState([]);             // the catalogue, to match their names to ours
+  const [people,setPeople]=useState([]);       // who asked, approved and sent, by name
   const set=(k,v)=>setO(p=>({...p,[k]:v}));
 
   const load=useCallback(async()=>{
@@ -6185,6 +6211,8 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
     // receiving still moves the right stock
     const pr=await sb.from('products').select('id,name');
     setCat(pr.data||[]);
+    const pf=await sb.from('profiles').select('id,full_name,email');
+    setPeople(pf.data||[]);
   },[id]);
   useEffect(()=>{load();},[load]);
   if(!o) return html`<div class="spinner"></div>`;
@@ -6226,6 +6254,25 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
   const pct=lines.length? lines.reduce((s,l)=>s+nz(l.qty_received),0)
                         / Math.max(lines.reduce((s,l)=>s+nz(l.qty_ordered),0),0.0001)*100 : 0;
 
+  /* The approval step. A draft is asked to be approved, an owner approves it, and only
+     then is it sent, so the supplier never sees an order nobody has signed off. The
+     database writes who took each step and when, and refuses the steps out of order. */
+  const moveTo=async st=>{
+    setErr(''); setMsg('');
+    const {error}=await sb.from('purchase_orders').update({status:st}).eq('id',id);
+    if(error){setErr(error.message);return;}
+    setMsg(st==='pending_approval' ? 'Sent for approval.'
+         : st==='approved' ? 'Approved. It can go to the supplier now.'
+         : st==='sent' ? 'Marked as sent to the supplier.' : 'Back to a draft.');
+    load();
+  };
+  const who=pid=>{ const p=people.find(x=>x.id===pid); return p ? (p.full_name||p.email) : 'somebody'; };
+  const when=d=>d ? new Date(d).toLocaleString('en-GB',
+    {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+  // the office that raised it, for the letterhead on the printed order
+  const poOffice=OFFICE_BY_ID[o.office_id]||{};
+  const deliverTo=whs.find(w=>w.id===o.warehouse_id);
+  const poMoney=o.currency||'EUR';   // the order's own money on the printed sheet, whatever the screen shows
   const save=async()=>{
     setBusy(true); setErr(''); setMsg('');
     const {error}=await sb.from('purchase_orders').update({
@@ -6394,6 +6441,84 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
         <div class="s">${poLabel(o.status)}</div></div>
     </div>
 
+    <div class="panel"><div class="panel-body flowrow">
+      <span class=${'pill '+poPill(o.status)}>${poLabel(o.status)}</span>
+      ${o.status==='draft' && html`<button class="btn" onClick=${()=>moveTo('pending_approval')}
+          title="Ask an owner to approve this order before it goes to the supplier">${_t("Ask for approval")}</button>`}
+      ${o.status==='pending_approval' && (MY_ROLE==='owner'
+        ? html`<button class="btn" onClick=${()=>moveTo('approved')}>${_t("Approve")}</button>
+               <button class="btn sec" onClick=${()=>moveTo('draft')}>${_t("Send it back")}</button>`
+        : html`<span class="muted">Waiting for an owner to approve it</span>`)}
+      ${o.submitted_at && ['pending_approval','approved'].includes(o.status)
+        && html`<span class="muted">Asked by ${who(o.submitted_by)}, ${when(o.submitted_at)}</span>`}
+      ${o.status==='approved' && html`<button class="btn" onClick=${()=>moveTo('sent')}>${_t("Mark as sent to the supplier")}</button>`}
+      ${o.approved_at && html`<span class="muted">Approved by ${who(o.approved_by)}, ${when(o.approved_at)}</span>`}
+      ${o.sent_at && html`<span class="muted">Sent by ${who(o.sent_by)}, ${when(o.sent_at)}</span>`}
+      <button class="btn sec sp" onClick=${printOnePage}
+        title="The order on our letterhead, to send to the supplier">${_t("Print / PDF")}</button>
+    </div></div>
+
+    ${/* The order on our own letterhead, to send to the supplier. Hidden on screen and the
+          only thing on the page when printed, the same way the invoice is. Notes stay
+          off it: they are ours. */''}
+    <div class="print-area">
+      <div class="iv-head">
+        <div class="pa-logo"><img src="./logo.png" alt=""
+             onError=${e=>{e.target.parentNode.style.visibility='hidden';}}/></div>
+        <div style=${{flex:1}}>
+          <div class="iv-title">PURCHASE ORDER</div>
+          <table class="pa-meta" style=${{marginLeft:'auto',marginRight:0}}><tbody>
+            <tr><td class="k">Order no :</td><td>${o.reference}</td></tr>
+            <tr><td class="k">Date :</td><td>${fmtDate(o.ordered_on||today())}</td></tr>
+            ${o.expected_on && html`<tr><td class="k">Expected :</td><td>${fmtDate(o.expected_on)}</td></tr>`}
+            ${o.supplier_ref && html`<tr><td class="k">Your ref :</td><td>${o.supplier_ref}</td></tr>`}
+          </tbody></table>
+        </div>
+      </div>
+      <div class="iv-parties">
+        <div>
+          <h5>From</h5>
+          <div class="pa-co">${(poOffice.legal_name||poOffice.name||'').toUpperCase()}</div>
+          ${(poOffice.address||'').split('\n').filter(t=>t.trim()).map((t,n)=>html`<div key=${n}>${t}</div>`)}
+          ${poOffice.tax_id && html`<div><b>${poOffice.tax_id_label||'TRN'} ${poOffice.tax_id}</b></div>`}
+          ${poOffice.email && html`<div>${poOffice.email}</div>`}
+          ${poOffice.phone && html`<div>${poOffice.phone}</div>`}
+        </div>
+        <div>
+          <h5>To</h5>
+          <div class="pa-co">${o.supplier||''}</div>
+          ${deliverTo && html`<div>Deliver to: ${deliverTo.name}</div>`}
+        </div>
+      </div>
+      <table class="iv-tbl">
+        <thead><tr><th style=${{width:'4%'}}>#</th><th>Description</th><th style=${{width:'10%'}}>Code</th>
+          <th style=${{width:'7%'}}>Packs</th><th style=${{width:'9%'}}>Qty</th><th style=${{width:'6%'}}>Unit</th>
+          <th style=${{width:'10%'}}>List/pack</th><th style=${{width:'7%'}}>Disc %</th>
+          <th style=${{width:'9%'}}>Weight kg</th><th style=${{width:'12%'}}>${'Amount '+poMoney}</th></tr></thead>
+        <tbody>${lines.map((l,i)=>html`<tr key=${l.id}>
+          <td class="c">${i+1}</td>
+          <td>${l.description||''}${l.pack_label?html`<div>${l.pack_label}</div>`:null}</td>
+          <td class="c">${l.hs_code||''}</td>
+          <td class="n">${l.packs??''}</td>
+          <td class="n">${nz(l.qty_ordered).toLocaleString('en',{maximumFractionDigits:3})}</td>
+          <td class="c">${l.unit||''}</td>
+          <td class="n">${l.list_price==null||l.list_price===''?'':fmtN(l.list_price)}</td>
+          <td class="n">${nz(l.discount_pct)?nz(l.discount_pct)+'%':''}</td>
+          <td class="n">${l.weight_kg==null||l.weight_kg===''?'':nz(l.weight_kg).toLocaleString('en',{maximumFractionDigits:2})}</td>
+          <td class="n">${fmtN(nz(l.qty_ordered)*nz(l.unit_price))}</td>
+        </tr>`)}</tbody>
+      </table>
+      <table class="iv-tot"><tbody>
+        <tr><td class="k">Total weight</td><td class="v">${lines.reduce((t,l)=>t+nz(l.weight_kg),0)
+              .toLocaleString('en',{maximumFractionDigits:2})} kg</td></tr>
+        <tr class="grand"><td class="k">${'Total ('+poMoney+')'}</td><td class="v">${fmtN(value)}</td></tr>
+      </tbody></table>
+      <div class="iv-foot">
+        ${o.approved_at && html`<div>Approved by ${who(o.approved_by)}, ${when(o.approved_at)}</div>`}
+        <div class="pa-sign"><span>For ${(poOffice.legal_name||poOffice.name||'').toUpperCase()}</span></div>
+      </div>
+    </div>
+
     <div class="panel"><div class="panel-body">
       <div class="grid2">
         <div class="field"><label>${_t("Supplier")}</label>
@@ -6402,7 +6527,8 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
           <input type="text" value=${o.supplier_ref||''} onInput=${e=>set('supplier_ref',e.target.value)}/></div>
         <div class="field"><label>${_t("Status")}</label>
           <select value=${o.status} onChange=${e=>set('status',e.target.value)}>
-            ${POSTATUS.map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select></div>
+            ${POSTATUS.map(([v,l])=>html`<option key=${v} value=${v}
+              disabled=${v==='approved' && MY_ROLE!=='owner' && o.status!=='approved'}>${l}</option>`)}</select></div>
         <div class="field"><label>${_t("Ordered on")}</label>
           <input type="date" value=${o.ordered_on||''} onInput=${e=>set('ordered_on',e.target.value)}/></div>
         <div class="field"><label>${_t("Expected")}</label>
@@ -13867,6 +13993,7 @@ function App(){
   // already scoped. Null means the BOTH view, where nothing is filtered on purpose.
   OFFICE_ID = office ? office.id : null;
   MY_OFFICE_ID = (me && me.office_id) || (offices[0] && offices[0].id) || null;
+  MY_ROLE = me ? me.role : null;
   // and every screen can say which office's money a record is in, and convert it
   OFFICE_BY_ID = Object.fromEntries(offices.map(o=>[o.id,o]));
   EUR_AED = rate;

@@ -278,6 +278,64 @@ checks.invoice_office = async page => {
   }
 };
 
+// Phase 5 B: draft → waiting for approval → approved (owner only) → sent, with who and when.
+checks.po_flow = async page => {
+  const [bru] = await sql("select id from offices where code='BRU'");
+  const [full] = await sql("select id from profiles where email='sweep-full@example.com'");
+  const [owner] = await sql("select id from profiles where email='sweep-owner@example.com'");
+  const [po] = await sql(`insert into purchase_orders (reference, supplier, status, currency, eur_aed_rate, notes, office_id)
+    values ('ZZTEST-PO-FLOW', 'Krypton Chemical S.L.', 'draft', 'EUR', 4.27, 'ZZTEST', '${bru.id}') returning id`);
+  await sql(`insert into purchase_order_lines (po_id, position, description, unit, packs, qty_ordered, unit_price, list_price, discount_pct, weight_kg)
+    values ('${po.id}', 1, 'ZZTEST product', 'kg', 2, 50, 3.39, 282.50, 70, 50)`);
+  const status = async () => (await sql(`select status, submitted_by, approved_by, approved_at, sent_by, sent_at from purchase_orders where id='${po.id}'`))[0];
+  const openOrder = async p => { await go(p, 'Orders'); await p.locator('tr', { hasText: 'ZZTEST-PO-FLOW' }).locator('td').nth(2).click();
+    await p.waitForSelector('.flowrow', { timeout: 15000 }); await settle(800); };
+  const browser = page.context().browser();
+  const ownerCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const op = await ownerCtx.newPage();
+  try {
+    // a full user asks; the database refuses an approval from them
+    await login(page, 'FULL'); await openOrder(page);
+    const approvedOpt = page.locator('.field:has(> label:has-text("Status")) select option[value="approved"]');
+    assert(await approvedOpt.isDisabled(), 'the status field does not offer "Approved" to a full user');
+    // and straight at the database, as that user, past the screen
+    const refused = await page.evaluate(id => sb.from('purchase_orders').update({ status: 'approved' }).eq('id', id)
+      .then(r => r.error ? r.error.message : 'no error'), po.id);
+    assert(/Only an owner can approve/.test(refused), `the database refuses an approval from a full user (saw "${refused}")`);
+    assert((await status()).status === 'draft', 'and the order stayed a draft');
+    await page.click('button:has-text("Ask for approval")'); await settle(1500);
+    let st = await status();
+    assert(st.status === 'pending_approval' && st.submitted_by === full.id, `asking records who asked (saw ${st.status}, ${st.submitted_by === full.id})`);
+    assert((await page.locator('button:has-text("Approve")').count()) === 0, 'a full user is not offered the approve button');
+    assert(/Waiting for an owner/.test(await page.locator('.flowrow').textContent()), 'and is told an owner has to approve it');
+    await page.click('button:has-text("All orders")'); await settle(1000);   // back to the list
+    await page.click('.subnav button:has-text("Waiting for approval")'); await settle(500);
+    assert((await page.locator('tr', { hasText: 'ZZTEST-PO-FLOW' }).count()) === 1, 'the list filter "Waiting for approval" shows it');
+    await page.click('.subnav button:has-text("Received")'); await settle(500);
+    assert((await page.locator('tr', { hasText: 'ZZTEST-PO-FLOW' }).count()) === 0, 'and the "Received" filter does not');
+    await go(page, 'Operations'); await settle(1500);
+    const queue = (await page.locator('.queue').first().textContent()).replace(/\s+/g, ' ');
+    assert(/ZZTEST-PO-FLOW is waiting for approval/.test(queue), `the home screen queue carries a row for it (saw "${queue.slice(0, 160)}")`);
+    // an owner approves and sends
+    await login(op, 'OWNER'); await op.click('.offsw button:has-text("BEL")'); await settle(800); await openOrder(op);
+    await op.click('button:has-text("Approve")'); await settle(1500);
+    st = await status();
+    assert(st.status === 'approved' && st.approved_by === owner.id && st.approved_at, `the owner's approval is recorded with who and when (saw ${st.status})`);
+    await op.click('button:has-text("Mark as sent")'); await settle(1500);
+    st = await status();
+    assert(st.status === 'sent' && st.sent_by === owner.id && st.sent_at, `sending records who and when (saw ${st.status})`);
+    assert(/Sent by/.test(await op.locator('.flowrow').textContent()), 'and the page says so');
+    const sheet = (await op.locator('.print-area').textContent()).replace(/\s+/g, ' ');
+    assert(/PURCHASE ORDER/.test(sheet) && /ZZTEST-PO-FLOW/.test(sheet), 'the printable order is on the page');
+    assert(/BUILD-TECH PRO B\.V/.test(sheet) && /BTW BE 1000\.969\.229/.test(sheet), `on the Bruges letterhead (saw "${sheet.slice(0, 140)}")`);
+    assert(/Total \(EUR\)\s?169\.50/.test(sheet), `with the order total in its own money (saw "${sheet.slice(-120)}")`);
+    assert(!/ZZTEST$/.test(sheet) && !/notes/i.test(sheet), 'and without the internal notes');
+  } finally {
+    await ownerCtx.close();
+    await sql(`delete from purchase_orders where id='${po.id}'`);
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
