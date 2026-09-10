@@ -190,6 +190,62 @@ checks.payments_scoped = async page => {
   } finally { await sql(`delete from invoice_payments where invoice_id='${inv.id}'; delete from invoices where id='${inv.id}'`); }
 };
 
+// F-021: a save that fails halfway leaves the quotation exactly as it was.
+checks.save_atomic = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-2', 4.27, '${dxb.id}', 'ZZTEST atomic') returning id`);
+  const [sec] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Roof') returning id`);
+  await sql(`insert into quotation_lines (section_id, position, description, unit, quantity, sell_rate) values
+    ('${sec.id}', 1, 'ZZTEST-FAIL line', 'm²', 100, 65.8), ('${sec.id}', 2, 'Second line', 'm²', 10, 5)`);
+  await sql(`create or replace function zztest_refuse_line() returns trigger language plpgsql as $f$
+      begin if new.description like 'ZZTEST-FAIL%' then raise exception 'ZZTEST: this line is refused'; end if; return new; end $f$;
+    drop trigger if exists zztest_refuse_line on quotation_lines;
+    create trigger zztest_refuse_line before insert on quotation_lines for each row execute function zztest_refuse_line()`);
+  try {
+    await login(page); await go(page, 'Quotations');
+    await page.locator('tr', { hasText: 'ZZTEST-Q-2' }).locator('td').nth(2).click();
+    await page.waitForSelector('button:has-text("Save")', { timeout: 15000 }); await settle(1500);
+    await page.click('button:has-text("Save")'); await settle(3000);
+    const err = (await page.locator('.err').allTextContents()).join(' | ');
+    assert(/ZZTEST: this line is refused/.test(err), `the refusal is reported (saw "${err}")`);
+    const [n] = await sql(`select (select count(*)::int from quotation_sections where quotation_id='${q.id}') as sections,
+      (select count(*)::int from quotation_lines l join quotation_sections s on s.id=l.section_id where s.quotation_id='${q.id}') as lines`);
+    assert(n.sections === 1 && n.lines === 2, `the quotation still has its section and both lines (saw ${n.sections} / ${n.lines})`);
+  } finally {
+    await sql('drop trigger if exists zztest_refuse_line on quotation_lines; drop function if exists zztest_refuse_line()');
+    await sql(`delete from quotations where id='${q.id}'`);
+  }
+};
+
+// F-024: a quotation that was only looked at is no draft, and a colleague's later save is not hidden under one.
+checks.draft_baseline = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-3', 4.27, '${dxb.id}', 'ZZTEST draft') returning id`);
+  await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Roof')`);
+  const open = async () => { await go(page, 'Quotations'); await page.locator('tr', { hasText: 'ZZTEST-Q-3' }).locator('td').nth(2).click();
+    await page.waitForSelector('button:has-text("Save")', { timeout: 15000 }); await settle(2000); };
+  const reopen = async () => { await page.reload(); await page.waitForSelector('.deck', { timeout: 30000 }); await open(); };
+  const banner = async () => (await page.locator('.flagbox').allTextContents()).join(' | ');
+  const projectField = () => page.locator('.field:has(> label:has-text("Project")) input').first();
+  try {
+    await login(page); await open();
+    assert(!/Picked up/.test(await banner()), 'opening a saved quotation shows no draft banner');
+    await reopen();
+    assert(!/Picked up/.test(await banner()), 'reopening it after a reload still shows none');
+    await projectField().fill('ZZTEST draft, edited'); await settle(800);
+    await reopen();
+    assert(/Picked up where you left off/.test(await banner()), 'an edit left unsaved comes back as a draft');
+    assert((await projectField().inputValue()) === 'ZZTEST draft, edited', 'with the edited value on screen');
+    await sql(`update quotations set project_name='ZZTEST saved by a colleague' where id='${q.id}'`);
+    await reopen();
+    const b = await banner();
+    assert(/saved on/.test(b) && !/Picked up/.test(b), `a colleague's later save is shown and the draft only offered (saw "${b}")`);
+    assert((await projectField().inputValue()) === 'ZZTEST saved by a colleague', 'the saved copy is what is on screen');
+    await page.click('button:has-text("Use my unsaved draft")'); await settle(500);
+    assert((await projectField().inputValue()) === 'ZZTEST draft, edited', 'and the draft can still be brought back');
+  } finally { await sql(`delete from quotations where id='${q.id}'`); }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();

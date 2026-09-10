@@ -10688,12 +10688,22 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
     }
   },[settings]);
   const [restored,setRestored]=useState('');
+  // an unsaved draft found on this machine that is older than what a colleague has since
+  // saved: shown and offered, never imposed
+  const [offered,setOffered]=useState(null);
+  // what the database holds, as last loaded or saved, so a quotation that was only looked
+  // at is never mistaken for a draft
+  const savedRef = useRef(null);
+  const dropDraft = ()=>{ try{ localStorage.removeItem(draftKey); }catch(e){} };
   useEffect(()=>{ qRef.current = q; secsRef.current = secs;
     if(!q) return;
-    // a saved quotation with no edits pending is not a draft worth keeping
+    // A quotation that matches what the database holds is not a draft worth keeping. One
+    // used to be written the moment a saved quotation loaded, so every reopen claimed
+    // "nothing has been saved" over work that had been, and a colleague's later save sat
+    // hidden under this machine's stale copy.
+    if(JSON.stringify({q, secs}) === savedRef.current){ dropDraft(); return; }
     try{ localStorage.setItem(draftKey, JSON.stringify({q, secs, at:Date.now()})); }catch(e){}
   },[q,secs,draftKey]);
-  const dropDraft = ()=>{ try{ localStorage.removeItem(draftKey); }catch(e){} };
 
   /* ── the cost arrives on its own ────────────────────────────────────────────────
      Naming a product and then pressing a button to find out what it costs is one step
@@ -10808,15 +10818,12 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
     // Work left behind last time comes back, whatever ended the last visit.
     let draft=null;
     try{ const raw=localStorage.getItem(draftKey); if(raw) draft=JSON.parse(raw); }catch(e){}
-    if(draft && draft.q){
-      setQ(draft.q);
-      setSecs(draft.secs||[]);
-      setRestored('Picked up where you left off. '
-        + (draft.at ? 'Last typed '+new Date(draft.at).toLocaleString('en-GB',
-            {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})+'. ' : '')
-        + 'Nothing has been saved to the database yet.');
-      return;
-    }
+    const stamp = d => new Date(d).toLocaleString('en-GB',
+            {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const typedAt = draft && draft.at ? 'Last typed '+stamp(draft.at)+'. ' : '';
+    const pickUp = ()=>{ setQ(draft.q); setSecs(draft.secs||[]);
+      setRestored('Picked up where you left off. '+typedAt+'Nothing has been saved to the database yet.'); };
+    if(draft && draft.q && isNew){ pickUp(); return; }
     /* A draft handed over by the scope reader carries its sections and a few fields it
        read off the document, and nothing else. It must NOT carry a whole quotation: the
        currency, the VAT rate, the office and the validity are decided here, from the
@@ -10831,7 +10838,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
       // its VAT rate and its language from that. Nobody sets those by hand, which is the
       // only way a Belgian job never goes out priced in dirhams at 5% VAT.
       const home = office || (offices||[])[0] || null;
-      setQ({id:null,reference:null,revision:'',client_id:null,project_name:'',location:'',
+      const initial={id:null,reference:null,revision:'',client_id:null,project_name:'',location:'',
             quote_date:today(),
             valid_until:new Date(Date.now()+days*864e5).toISOString().slice(0,10),
             status:'draft',
@@ -10851,7 +10858,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
                               ? 'From the client\'s scope of works:\n'
                                 + draft.seed.notes.map((n,ix)=>(ix+1)+'. '+n).join('\n')
                               : ''].filter(Boolean).join('\n\n'),
-                } : {})});
+                } : {})};
+      setQ(initial);
       if(fromScope){
         setSecs(draft.secs);
         const who = draft.seed && draft.seed.client_name;
@@ -10861,15 +10869,24 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
           + (notes.length ? 'Its ' + notes.length + ' condition'
               + (notes.length===1?' is':'s are') + ' in the remarks at the bottom. ' : '')
           + 'Check every rate before you send it. Nothing has been saved yet.');
-      } else setSecs([]);
+      } else { setSecs([]); savedRef.current = JSON.stringify({q:initial, secs:[]}); }
       return;
     }
     const [{data:qq},{data:ss}]=await Promise.all([
       sb.from('quotations').select('*').eq('id',id).single(),
       sb.from('quotation_sections').select('*, quotation_lines(*)').eq('quotation_id',id).order('position')]);
-    setQ(qq);
-    setSecs((ss||[]).map(x=>({
-      ...x, lines: normaliseSection((x.quotation_lines||[]).sort((a,b)=>a.position-b.position))})));
+    const fromDb=(ss||[]).map(x=>({
+      ...x, lines: normaliseSection((x.quotation_lines||[]).sort((a,b)=>a.position-b.position))}));
+    setQ(qq); setSecs(fromDb);
+    savedRef.current = JSON.stringify({q:qq, secs:fromDb});
+    if(draft && draft.q && qq){
+      // the draft is picked up only over a copy nobody has saved since; otherwise the
+      // saved copy is what is shown and the draft is offered
+      if(draft.q.updated_at === qq.updated_at) pickUp();
+      else setOffered({q:draft.q, secs:draft.secs||[],
+        text:'This quotation was saved on '+stamp(qq.updated_at)+', after the unsaved work left on this machine. '
+            +typedAt+'The saved copy is what you see.'});
+    }
     // Deliberately not depending on settings. A settings reload used to re-run all of this
     // and blank a quotation somebody was halfway through writing, which is the single most
     // expensive bug this system has had. The defaults are read once, at the start.
@@ -11205,19 +11222,15 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
     const lineProduct = l => { if(l.product_id) return l.product_id;
       if(!(l.is_costing || l.is_spec_note)) return null;
       const p = findProduct(plainText(l.description||'')); return p ? p.id : null; };
-    await sb.from('quotation_sections').delete().eq('quotation_id',qid);
-    for(const [i,s] of secs.entries()){
-      const {data:ns,error:e1}=await sb.from('quotation_sections')
-        .insert({quotation_id:qid,position:i+1,title:s.title||('Section '+(i+1))}).select().single();
-      if(e1){setBusy(false);setMsg('Error: '+e2Msg(e1));return;}
-      const lines=s.lines.map((l,j)=>({section_id:ns.id,position:j+1,description:l.description||'',
-        is_spec_note:l.is_spec_note,is_bold:!!l.is_bold,is_costing:!!l.is_costing,
-        product_id:lineProduct(l),
-        unit:l.unit||null,quantity:num(l.quantity),
-        sell_rate:num(l.sell_rate),cost_rate:num(l.cost_rate),is_provisional:l.is_provisional}));
-      if(lines.length){const {error:e2}=await sb.from('quotation_lines').insert(lines);
-        if(e2){setBusy(false);setMsg('Error: '+e2.message);return;}}
-    }
+    // One call, one transaction. The old sections go only once every new one is in;
+    // before this a failure halfway left the quotation empty in the database.
+    const sections=secs.map((s,i)=>({title:s.title||('Section '+(i+1)),
+      lines:(s.lines||[]).map(l=>({description:l.description||'',
+        is_spec_note:!!l.is_spec_note,is_bold:!!l.is_bold,is_costing:!!l.is_costing,
+        product_id:lineProduct(l), unit:l.unit||null, quantity:num(l.quantity),
+        sell_rate:num(l.sell_rate), cost_rate:num(l.cost_rate), is_provisional:!!l.is_provisional}))}));
+    const {data:savedAt,error:e2}=await sb.rpc('save_quotation',{p_quotation:qid,p_sections:sections});
+    if(e2){setBusy(false);setMsg('Error: '+e2Msg(e2));return;}
     /* Remember how each product was worded and what it was costed at, so the next
        quotation offers both rather than making somebody remember them. Only the build-up
        lines, because those are the ones that name a product; and only where the name
@@ -11248,7 +11261,11 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
       }
     }catch(e){ /* the quotation is saved; the memory is a convenience */ }
 
-    // it is in the database now, so the local copy has done its job
+    // it is in the database now: what is on screen is the saved copy, and the local
+    // draft has done its job
+    const after={...q, id:qid, reference:q.reference||newRef, updated_at:savedAt};
+    savedRef.current = JSON.stringify({q:after, secs});
+    setQ(after); setOffered(null);
     dropDraft(); setRestored('');
     setBusy(false); setMsg(newRef ? 'Saved as '+newRef+'.' : 'Saved.');
   };
@@ -11295,6 +11312,16 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
         onClick=${()=>{ dropDraft(); setRestored(''); window.location.reload(); }}
         title="Throw the unsaved work away and start from what is in the database"
         >Start again</button></div>`}
+    ${offered && html`<div class="flagbox">${offered.text}
+      <button class="btn sec sm" style=${{marginLeft:'10px'}}
+        onClick=${()=>{ setQ(offered.q); setSecs(offered.secs); setOffered(null);
+          setRestored('Your unsaved draft is back on screen. Saving it replaces what your colleague saved.'); }}
+        title="Put the unsaved work from this machine back on screen"
+        >Use my unsaved draft</button>
+      <button class="btn sec sm" style=${{marginLeft:'6px'}}
+        onClick=${()=>{ dropDraft(); setOffered(null); }}
+        title="Throw the unsaved work away and keep the saved copy"
+        >Discard it</button></div>`}
     ${shipOpen && html`<${ShippingRequest} q=${q} secs=${secs} cat=${cat} trans=${trans}
                           settings=${settings} client=${clients.find(c=>c.id===q.client_id)}/>`}
     ${belowCost.length>0 && html`<div class="warnbar">
