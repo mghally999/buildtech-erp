@@ -1,0 +1,19 @@
+{
+  "name": "Build-Tech Pro",
+  "short_name": "Build-Tech",
+  "description": "Quotations, orders, stock, approvals and finance for Build-Tech Protection Materials L.L.C and Build-Tech Pro B.V.",
+  "id": "/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#08060A",
+  "theme_color": "#08060A",
+  "lang": "en",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

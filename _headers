@@ -1,0 +1,31 @@
+# Read by Netlify and by Cloudflare Pages. Ignored by anything else, harmlessly.
+#
+# The point of this file is the caching. Without it a host will happily serve a
+# browser last week's index.html for a year, and a fix that was published on Monday
+# will not be on Charles's screen on Friday.
+
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+
+# The program, the configuration and the worker: never held, always re-checked.
+/index.html
+  Cache-Control: no-cache
+/
+  Cache-Control: no-cache
+/config.js
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# These only ever change by getting a new name, so they can be held for a year.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
