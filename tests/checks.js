@@ -86,6 +86,109 @@ checks.both_mode = async page => {
   }
 };
 
+// F-008: saving a quotation writes the product behind every build-up line that names one.
+checks.line_products = async page => {
+  const [prod] = await sql("select id, name from products where is_active order by name limit 1");
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-1', 4.27, '${dxb.id}', 'ZZTEST quotation') returning id`);
+  const [sec] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Roof') returning id`);
+  await sql(`insert into quotation_lines (section_id, position, description, is_costing, unit, quantity, sell_rate, cost_rate) values
+    ('${sec.id}', 1, 'Waterproofing to roof', false, 'm²', 100, 65.8, 36.19),
+    ('${sec.id}', 2, ${lit(prod.name)}, true, 'kg', 250, null, 15)`);
+  try {
+    await login(page); await go(page, 'Quotations');
+    await page.locator('tr', { hasText: 'ZZTEST-Q-1' }).locator('td').nth(2).click();
+    await page.waitForSelector('button:has-text("Save")', { timeout: 15000 }); await settle(1500);
+    await page.click('button:has-text("Save")'); await settle(3000);
+    const rows = await sql(`select l.description, l.product_id from quotation_lines l join quotation_sections s on s.id=l.section_id where s.quotation_id='${q.id}' order by l.position`);
+    assert(rows.length === 2, `the quotation still has its 2 lines after save (saw ${rows.length})`);
+    assert(rows[1] && rows[1].product_id === prod.id, 'the build-up line now carries its product id');
+    assert(rows[0] && rows[0].product_id === null, 'the priced line, which names no product, carries none');
+    const errs = await page.locator('.err').allTextContents();
+    assert(errs.length === 0, `no error on the editor (${errs.join(' | ')})`);
+  } finally { await sql(`delete from quotations where id='${q.id}'`); }
+};
+
+// F-025: an "add a row" that the database refuses shows the refusal and leaves the screen up.
+checks.add_row_error = async page => {
+  await sql(`create or replace function zztest_refuse() returns trigger language plpgsql as $f$ begin raise exception 'ZZTEST: the bank said no'; end $f$;
+    drop trigger if exists zztest_refuse on bank_accounts;
+    create trigger zztest_refuse before insert on bank_accounts for each row execute function zztest_refuse()`);
+  try {
+    await login(page); await go(page, 'Finance');
+    await page.click('.subnav button:has-text("Bank accounts")'); await settle(1500);
+    await page.click('button:has-text("Add account")'); await settle(1500);
+    const err = await page.locator('.err').allTextContents();
+    assert(err.some(t => t.includes('ZZTEST: the bank said no')), `the refusal is shown on screen (saw "${err.join(' | ')}")`);
+    assert(await page.locator('.page-head h1').count() === 1, 'the screen is still there, not blank');
+    assert(await page.locator('button:has-text("Add account")').count() === 1, 'the add button is still there');
+  } finally { await sql('drop trigger if exists zztest_refuse on bank_accounts; drop function if exists zztest_refuse()'); }
+};
+
+// F-026: held stock and more than is on hand cannot be issued from the screen.
+checks.held_stock = async page => {
+  const [wh] = await sql("insert into warehouses (name, dcd_certified) values ('ZZTEST warehouse', false) returning id");
+  const [dang] = await sql("insert into products (category, name, is_dangerous) values ((select category from products limit 1), 'ZZTEST dangerous product', true) returning id");
+  const [safe] = await sql("insert into products (category, name, is_dangerous) values ((select category from products limit 1), 'ZZTEST plain product', false) returning id");
+  await sql(`insert into stock_movements (product_id, warehouse_id, direction, quantity) values ('${dang.id}', '${wh.id}', 'in', 10), ('${safe.id}', '${wh.id}', 'in', 10)`);
+  const [d] = await sql(`select blocked, block_reason from stock_detail where product_id='${dang.id}' and warehouse_id='${wh.id}'`);
+  const field = label => page.locator(`.field:has(> label:has-text("${label}"))`);
+  const issue = async (name, qty) => {
+    await field('Product').locator('input').fill(name);
+    await field('Warehouse').locator('select').selectOption({ label: 'ZZTEST warehouse' });
+    await field('In or out').locator('select').selectOption('out');
+    await field('Quantity').locator('input').fill(String(qty));
+    await page.click('button:has-text("Record movement")'); await settle(1500);
+    return (await page.locator('.err').allTextContents()).join(' | ');
+  };
+  try {
+    await login(page); await go(page, 'Stock'); await settle(1000);
+    const e1 = await issue('ZZTEST plain product', 50);
+    assert(/Only 10/.test(e1), `issuing more than is on hand is refused (saw "${e1}")`);
+    if (d && d.blocked) {
+      const e2 = await issue('ZZTEST dangerous product', 1);
+      assert(/held/.test(e2), `issuing held stock is refused (saw "${e2}")`);
+    } else console.log('    (the view does not hold this product here, so only the on-hand check ran)');
+    const [left] = await sql(`select sum(case when direction='out' then 1 else 0 end) as outs from stock_movements where warehouse_id='${wh.id}'`);
+    assert(Number(left.outs) === 0, 'nothing left the warehouse');
+  } finally {
+    await sql(`delete from stock_movements where warehouse_id='${wh.id}'; delete from stock where warehouse_id='${wh.id}';
+      delete from products where name like 'ZZTEST%'; delete from warehouses where id='${wh.id}'`);
+  }
+};
+
+// F-042: in the company view a new record goes to the person's own office, and the header says so.
+checks.both_stamp = async page => {
+  const [bru] = await sql("select id from offices where code='BRU'");
+  await sql(`alter table profiles disable trigger profiles_role_is_the_owners;
+    update profiles set office_id='${bru.id}' where email='sweep-full@example.com';
+    alter table profiles enable trigger profiles_role_is_the_owners`);
+  try {
+    await login(page, 'FULL'); await page.click('.offsw button:has-text("BOTH")'); await settle(1000);
+    const note = (await page.locator('.offnote').count()) ? await page.locator('.offnote').textContent() : '';
+    assert(/Bruges/.test(note), `the header says where new records go (saw "${note}")`);
+    await go(page, 'Finance'); await page.click('.subnav button:has-text("Bank accounts")'); await settle(1500);
+    await page.click('button:has-text("Add account")'); await settle(1500);
+    const rows = await sql("select office_id from bank_accounts where name='New account' order by created_at desc limit 1");
+    assert(rows.length === 1 && rows[0].office_id === bru.id, "a record added in the company view is filed under the person's own office");
+  } finally { await sql("delete from bank_accounts where name='New account'"); }
+};
+
+// F-043: receipts are read through their invoice, so one office's chart does not show the other's.
+checks.payments_scoped = async page => {
+  const [bru] = await sql("select id from offices where code='BRU'");
+  const [inv] = await sql(`insert into invoices (reference, status, office_id) values ('ZZTEST-INV-1', 'sent', '${bru.id}') returning id`);
+  await sql(`insert into invoice_payments (invoice_id, paid_on, amount) values ('${inv.id}', current_date, 100)`);
+  const labels = async () => (await page.locator('.viz svg text.viz-ax').allTextContents()).filter(t => /^\d\d\/\d\d$/.test(t)).length;
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(500);
+    await go(page, 'Finance'); await page.click('.subnav button:has-text("Overview")'); await settle(2000);
+    assert(await labels() === 0, `Dubai view: a Belgian receipt does not appear in the money chart (saw ${await labels()} labels)`);
+    await page.click('.offsw button:has-text("BOTH")'); await settle(2500);
+    assert(await labels() === 12, `company view: the receipt appears (saw ${await labels()} labels)`);
+  } finally { await sql(`delete from invoice_payments where invoice_id='${inv.id}'; delete from invoices where id='${inv.id}'`); }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
