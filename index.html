@@ -2886,6 +2886,14 @@ const AED0 = (n,cur) => fmtMoney(n,cur,{maximumFractionDigits:0});
 // difference between AED 28.95 and AED 29.44, which over 500 m2 is AED 245
 const AED2 = (n,cur) => fmtMoney(n,cur,{minimumFractionDigits:2,maximumFractionDigits:2});
 
+/* An "add a row" that fails has to say so and add nothing. The library answers a failed
+   insert with data null; pushing that into the list put a null where a row should be, the
+   next render read .id of it, React gave up, and the whole screen went blank with a reload
+   as the only way back. */
+const addedRow = ({data,error}, setErr, what) => {
+  if(error || !data){ setErr(error ? error.message : what+' was not saved.'); return null; }
+  return data; };
+
 /* Two offices, two currencies. A figure that carries no currency of its own (a project's
    value, an invoice, a salary, an inquiry) is in its office's money. With one office on
    screen that is the currency on screen and nothing needs converting. In the company view
@@ -4306,16 +4314,16 @@ function ProjectPage({id,clients,back}){
     setBusy(false); setMsg('Saved.'); load();
   };
   const addMat=async()=>{
-    const {data}=await sb.from('project_materials').insert({project_id:id,description:'',
-      unit:'kg',qty_required:0,qty_delivered:0,position:mats.length+1}).select().single();
-    setMats(v=>[...v,data]);
+    const row=addedRow(await sb.from('project_materials').insert({project_id:id,description:'',
+      unit:'kg',qty_required:0,qty_delivered:0,position:mats.length+1}).select().single(),setErr,'The material line');
+    if(row) setMats(v=>[...v,row]);
   };
   const delMat=async(m)=>{ await sb.from('project_materials').delete().eq('id',m.id);
                            setMats(v=>v.filter(x=>x.id!==m.id)); };
   const addMil=async()=>{
-    const {data}=await sb.from('payment_milestones').insert({project_id:id,
-      name:'',amount:0,position:mils.length+1}).select().single();
-    setMils(v=>[...v,data]);
+    const row=addedRow(await sb.from('payment_milestones').insert({project_id:id,
+      name:'',amount:0,position:mils.length+1}).select().single(),setErr,'The milestone');
+    if(row) setMils(v=>[...v,row]);
   };
   const delMil=async(m)=>{ await sb.from('payment_milestones').delete().eq('id',m.id);
                            setMils(v=>v.filter(x=>x.id!==m.id)); };
@@ -6838,9 +6846,9 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
     setBusy(false); setMsg('Saved.'); load();
   };
   const addLine=async()=>{
-    const {data}=await sb.from('shipment_lines').insert({shipment_id:id,description:'',
-      unit:'kg',position:lines.length+1}).select().single();
-    setLines(v=>[...v,data]);
+    const row=addedRow(await sb.from('shipment_lines').insert({shipment_id:id,description:'',
+      unit:'kg',position:lines.length+1}).select().single(),setErr,'The cargo line');
+    if(row) setLines(v=>[...v,row]);
   };
   const delLine=async(l)=>{ await sb.from('shipment_lines').delete().eq('id',l.id);
                             setLines(v=>v.filter(x=>x.id!==l.id)); };
@@ -12308,9 +12316,9 @@ function People(){
     setMsg('Saved.'); load();
   };
   const addPartner=async()=>{
-    const {data}=await sb.from('partners').insert({name:'New partner',ownership_pct:0,
-      share_capital:0}).select().single();
-    setPartners(v=>[...v,data]);
+    const row=addedRow(await sb.from('partners').insert({name:'New partner',ownership_pct:0,
+      share_capital:0}).select().single(),setErr,'The partner');
+    if(row) setPartners(v=>[...v,row]);
   };
   const delPartner=async(p)=>{
     if(!confirm('Remove '+p.name+'?')) return;
@@ -12435,9 +12443,9 @@ function Banks(){
     setMsg('Saved.'); load();
   };
   const add=async()=>{
-    const {data}=await sb.from('bank_accounts').insert({name:'New account',
-      currency:'AED',opening_balance:0,opening_date:today()}).select().single();
-    setRows(v=>[...v,data]);
+    const row=addedRow(await sb.from('bank_accounts').insert({name:'New account',
+      currency:'AED',opening_balance:0,opening_date:today()}).select().single(),setErr,'The account');
+    if(row) setRows(v=>[...v,row]);
   };
   const del=async(r)=>{ if(!confirm('Remove '+r.name+'?')) return;
     await sb.from('bank_accounts').delete().eq('id',r.id); load(); };
@@ -12696,18 +12704,19 @@ function InvoicePage({id,clients,projects,settings,back}){
     setBusy(false); setMsg('Saved.'); load();
   };
   const addLine=async()=>{
-    const {data}=await sb.from('invoice_lines').insert({invoice_id:id,description:'',
-      quantity:1,rate:0,position:lines.length+1}).select().single();
-    setLines(v=>[...v,data]);
+    const row=addedRow(await sb.from('invoice_lines').insert({invoice_id:id,description:'',
+      quantity:1,rate:0,position:lines.length+1}).select().single(),setErr,'The line');
+    if(row) setLines(v=>[...v,row]);
   };
   const delLine=async(l)=>{ await sb.from('invoice_lines').delete().eq('id',l.id);
                             setLines(v=>v.filter(x=>x.id!==l.id)); };
   const upL=(i,k,v)=>setLines(a=>a.map((x,n)=>n===i?{...x,[k]:v}:x));
   const addPay=async()=>{
     const amt=Math.max(0,Math.round(outstanding*100)/100);
-    const {data}=await sb.from('invoice_payments').insert({invoice_id:id,
-      paid_on:today(), amount:amt}).select().single();
-    setPays(v=>[...v,data]);
+    const row=addedRow(await sb.from('invoice_payments').insert({invoice_id:id,
+      paid_on:today(), amount:amt}).select().single(),setErr,'The payment');
+    if(!row) return;
+    setPays(v=>[...v,row]);
     // Settling the invoice settles the milestone behind it.
     if(iv?.milestone_id && amt>=outstanding-0.005)
       await sb.from('payment_milestones').update({paid_on:today()}).eq('id',iv.milestone_id);
