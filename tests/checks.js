@@ -246,6 +246,38 @@ checks.draft_baseline = async page => {
   } finally { await sql(`delete from quotations where id='${q.id}'`); }
 };
 
+// F-002: an invoice raised in Bruges is numbered, taxed, worded and headed by Bruges.
+checks.invoice_office = async page => {
+  const [bru] = await sql("select id, invoice_prefix, vat_rate from offices where code='BRU'");
+  const [cl] = await sql(`insert into clients (name, kind, office_id) values ('ZZTEST Belgian client', 'client', '${bru.id}') returning id`);
+  const field = label => page.locator(`.modal .field:has(> label:has-text("${label}"))`);
+  try {
+    await login(page, 'FULL'); await page.click('.offsw button:has-text("BEL")'); await settle(800);
+    await go(page, 'Finance'); await page.click('.subnav button:has-text("Money in")'); await settle(1500);
+    await page.click('button:has-text("New invoice")'); await settle(800);
+    await field('Client').locator('select').selectOption({ label: 'ZZTEST Belgian client' });
+    const vatOption = await field('VAT').locator('select option').first().textContent().catch(() => '');
+    assert(/21% VAT/.test(vatOption), `the VAT choice names the office's rate (saw "${vatOption}")`);
+    await page.click('.modal button:has-text("Create")'); await settle(3000);
+    const [inv] = await sql(`select id, reference, office_id, vat_rate from invoices where client_id='${cl.id}'`);
+    assert(inv && inv.reference.startsWith(bru.invoice_prefix), `the number comes from the Bruges series (saw ${inv && inv.reference})`);
+    assert(inv && inv.office_id === bru.id, 'the invoice is filed under Bruges');
+    assert(inv && Number(inv.vat_rate) === Number(bru.vat_rate), `the VAT rate is the office's (saw ${inv && inv.vat_rate})`);
+    await page.waitForSelector('.iv-words', { state: 'attached', timeout: 15000 });   // the sheet is print-only
+    const sheet = (await page.locator('.iv-words').textContent()) + ' ' + (await page.locator('.iv-tot').textContent());
+    assert(/euros? only/.test(sheet), `the amount in words is in euros (saw "${sheet.trim().slice(0, 80)}")`);
+    assert(/Total due \(EUR\)/.test(sheet), 'the total is marked EUR');
+    const head = await page.locator('.pa-co').first().textContent();
+    assert(/BUILD-TECH PRO B\.V/.test(head), `the letterhead is the Belgian company (saw "${head}")`);
+    const parties = await page.locator('.iv-parties').textContent().catch(() => '');
+    const printed = (await page.locator('.pa-co').first().locator('..').textContent());
+    assert(/BTW BE 1000\.969\.229/.test(printed), `the tax number is the Belgian BTW (saw "${printed.replace(/\s+/g, ' ').slice(0, 120)}")`);
+  } finally {
+    await sql(`delete from invoice_lines where invoice_id in (select id from invoices where client_id='${cl.id}');
+      delete from invoices where client_id='${cl.id}'; delete from clients where id='${cl.id}'`);
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();

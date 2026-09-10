@@ -11814,8 +11814,9 @@ const iLabel=v=>(ISTATUS.find(x=>x[0]===v)||[v,v])[1];
 const monthOf=d=>(d||'').slice(0,7);
 const owedWords=b=>b>0.005?'the company owes them':b<-0.005?'they owe the company':'square';
 
-// amount in words, for the tax invoice
-function inWords(n){
+// amount in words, for the tax invoice, in the invoice's own money
+function inWords(n, cur){
+  const [one, many, small] = cur==='EUR' ? ['euro','euros','cents'] : ['dirham','dirhams','fils'];
   const ones=['zero','one','two','three','four','five','six','seven','eight','nine','ten',
     'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
   const tens=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
@@ -11826,14 +11827,14 @@ function inWords(n){
     return s; };
   const whole=Math.floor(Math.abs(nz(n)));
   const fils=Math.round((Math.abs(nz(n))-whole)*100);
-  if(whole===0 && fils===0) return 'Zero dirhams only';
+  if(whole===0 && fils===0) return 'Zero '+many+' only';
   const units=[[1e9,'billion'],[1e6,'million'],[1e3,'thousand']];
   let r=whole, parts=[];
   for(const [v,name] of units){ if(r>=v){ parts.push(three(Math.floor(r/v))+' '+name); r%=v; } }
   if(r>0) parts.push(three(r));
   let s=parts.join(' ').trim()||'zero';
-  s=s.charAt(0).toUpperCase()+s.slice(1)+' dirham'+(whole===1?'':'s');
-  if(fils>0) s+=' and '+three(fils)+' fils';
+  s=s.charAt(0).toUpperCase()+s.slice(1)+' '+(whole===1?one:many);
+  if(fils>0) s+=' and '+three(fils)+' '+small;
   return s+' only';
 }
 
@@ -12642,7 +12643,12 @@ function NewInvoiceModal({clients,projects,settings,close,saved}){
   const save=async()=>{
     if(!f.client_id) return setErr('Choose a client.');
     setBusy(true); setErr('');
-    const {data:ref,error:e0}=await sb.rpc('next_invoice_reference');
+    // The number, the VAT rate and the money all come off the office the invoice is
+    // raised in: the office on screen, or in the company view the person's own. Dubai
+    // and Bruges keep separate series, so the two never take the same number.
+    const officeId = OFFICE_ID || MY_OFFICE_ID || null;
+    const home = OFFICE_BY_ID[officeId] || null;
+    const {data:ref,error:e0}=await sb.rpc('next_invoice_reference',{p_office:officeId});
     if(e0){setBusy(false);setErr(e0.message);return;}
     const pj=projects.find(x=>x.id===f.project_id);
     const {data,error}=await sb.from('invoices').insert({
@@ -12650,7 +12656,8 @@ function NewInvoiceModal({clients,projects,settings,close,saved}){
       milestone_id:f.milestone_id||null, invoice_date:f.invoice_date,
       due_date:f.due_date||null, lpo_number:f.lpo_number||null,
       payment_terms:cfg('invoice_payment_terms')||null,
-      vat_applies:f.vat_applies, vat_rate:settingNumber(cfg('vat_rate'), 0.05),
+      vat_applies:f.vat_applies,
+      vat_rate:home && home.vat_rate!=null ? Number(home.vat_rate) : settingNumber(cfg('vat_rate'), 0.05),
       status:'draft'}).select().single();
     if(error){setBusy(false);setErr(error.message);return;}
     const m=mils.find(x=>x.id===f.milestone_id);
@@ -12663,6 +12670,10 @@ function NewInvoiceModal({clients,projects,settings,close,saved}){
              invoiced_on:f.invoice_date}).eq('id',m.id);
     setBusy(false); saved(data.id);
   };
+  // the rate the office charges, for the label on the choice
+  const homeOffice = OFFICE_BY_ID[OFFICE_ID || MY_OFFICE_ID] || null;
+  const vatPct = Math.round((homeOffice && homeOffice.vat_rate!=null ? Number(homeOffice.vat_rate)
+                              : settingNumber(cfg('vat_rate'), 0.05))*100);
   return html`
     <div class="modal-bg" onClick=${e=>e.target===e.currentTarget&&close()}>
       <div class="modal"><div class="modal-head"><h2>${_t("New invoice")}</h2></div>
@@ -12694,7 +12705,7 @@ function NewInvoiceModal({clients,projects,settings,close,saved}){
             <input type="text" value=${f.lpo_number} onInput=${e=>set('lpo_number',e.target.value)}/></div>
           <div class="field"><label>${_t("VAT")}</label>
             <select value=${f.vat_applies?'y':'n'} onChange=${e=>set('vat_applies',e.target.value==='y')}>
-              <option value="y">${_t("Add 5% VAT")}</option><option value="n">${_t("No VAT")}</option></select></div>
+              <option value="y">${vatPct===5 ? _t("Add 5% VAT") : 'Add '+vatPct+'% VAT'}</option><option value="n">${_t("No VAT")}</option></select></div>
         </div>
         <p class="muted">Picking a milestone fills the first line in for you and stamps the invoice number back onto the project.</p>
       </div>
@@ -12729,6 +12740,13 @@ function InvoicePage({id,clients,projects,settings,back}){
   const received=pays.reduce((s,p)=>s+nz(p.amount),0);
   const outstanding=total-received;
   const ivCur=officeCur(iv.office_id);   // the invoice's money, whichever office is on screen
+  // The letterhead, tax number, bank details and terms of the office that raised it,
+  // falling back to Settings where the office has nothing. A Belgian invoice used to go
+  // out under Dubai's name, TRN and bank account.
+  const ivOffice = OFFICE_BY_ID[iv.office_id] || null;
+  const oc = (k,s) => (ivOffice && ivOffice[k]) || cfg(s||k) || '';
+  const taxLabel = (ivOffice && ivOffice.tax_id_label) || 'TRN';
+  const taxId = oc('tax_id','trn');
   const client=iv.clients||null;
   const late=outstanding>0.005 && iv.due_date && iv.due_date<today()
              && !['draft','cancelled'].includes(iv.status);
@@ -12795,7 +12813,7 @@ function InvoicePage({id,clients,projects,settings,back}){
     </div>
     ${err && html`<div class="err">${err}</div>`}
     ${msg && html`<div class="ok">${msg}</div>`}
-    ${!cfg('trn') && html`<div class="err">${'This is a tax invoice but your TRN is still blank in Settings. Add it before you send this to a client.'}</div>`}
+    ${!taxId && html`<div class="err">${'This is a tax invoice but the '+taxLabel+' for '+(ivOffice?ivOffice.name:'the office')+' is still blank in Settings. Add it before you send this to a client.'}</div>`}
 
     <div class="cards">
       <div class="card"><div class="k">Invoice total</div><div class="v">${AED0(total,ivCur)}</div>
@@ -12831,7 +12849,8 @@ function InvoicePage({id,clients,projects,settings,back}){
             ${ISTATUS.map(([v,l])=>html`<option key=${v} value=${v}>${l}</option>`)}</select></div>
         <div class="field"><label>${_t("VAT")}</label>
           <select value=${iv.vat_applies?'y':'n'} onChange=${e=>set('vat_applies',e.target.value==='y')}>
-            <option value="y">${_t("Add 5% VAT")}</option><option value="n">${_t("No VAT")}</option></select></div>
+            <option value="y">${Math.round(nz(iv.vat_rate)*100)===5 ? _t("Add 5% VAT")
+              : 'Add '+Math.round(nz(iv.vat_rate)*100)+'% VAT'}</option><option value="n">${_t("No VAT")}</option></select></div>
       </div>
       <div class="field"><label>${_t("Notes, printed under the total")}</label>
         <textarea value=${iv.notes||''} onInput=${e=>set('notes',e.target.value)}></textarea></div>
@@ -12841,7 +12860,7 @@ function InvoicePage({id,clients,projects,settings,back}){
     <div class="panel">
       <div class="panel-head"><h2>${_t("What you are charging for")}</h2></div>
       <div class="ihead"><span>Description</span><span>Unit</span><span>Qty</span>
-        <span>Rate (AED)</span><span>Amount</span><span></span></div>
+        <span>Rate (${ivCur})</span><span>Amount</span><span></span></div>
       ${lines.map((l,i)=>html`<div class="irow" key=${l.id}>
         <input type="text" value=${l.description||''} onInput=${e=>upL(i,'description',e.target.value)}/>
         <input type="text" value=${l.unit||''} onInput=${e=>upL(i,'unit',e.target.value)}/>
@@ -12906,18 +12925,18 @@ function InvoicePage({id,clients,projects,settings,back}){
       <div class="iv-parties">
         <div>
           <h5>From</h5>
-          <div class="pa-co">${cfg('company_legal_name').toUpperCase()}</div>
-          ${cfg('company_address').split('\n').map((t,n)=>html`<div key=${n}>${t}</div>`)}
-          ${cfg('trn') && html`<div><b>TRN ${cfg('trn')}</b></div>`}
-          ${cfg('trade_licence') && html`<div>Trade licence ${cfg('trade_licence')}</div>`}
-          ${cfg('company_email') && html`<div>${cfg('company_email')}</div>`}
+          <div class="pa-co">${oc('legal_name','company_legal_name').toUpperCase()}</div>
+          ${oc('address','company_address').split('\n').map((t,n)=>html`<div key=${n}>${t}</div>`)}
+          ${taxId && html`<div><b>${taxLabel} ${taxId}</b></div>`}
+          ${(!ivOffice || ivOffice.code==='DXB') && cfg('trade_licence') && html`<div>Trade licence ${cfg('trade_licence')}</div>`}
+          ${oc('email','company_email') && html`<div>${oc('email','company_email')}</div>`}
         </div>
         <div>
           <h5>Bill to</h5>
           <div class="pa-co">${client?client.name:''}</div>
           <div>${client?.location||iv.projects?.name||''}</div>
           ${client?.contact_person && html`<div>Attn ${client.contact_person}</div>`}
-          ${client?.trn && html`<div><b>TRN ${client.trn}</b></div>`}
+          ${client?.trn && html`<div><b>${taxLabel} ${client.trn}</b></div>`}
           ${client?.email && html`<div>${client.email}</div>`}
         </div>
       </div>
@@ -12926,7 +12945,7 @@ function InvoicePage({id,clients,projects,settings,back}){
         <colgroup><col style=${{width:'5%'}}/><col style=${{width:'45%'}}/><col style=${{width:'9%'}}/>
           <col style=${{width:'10%'}}/><col style=${{width:'15%'}}/><col style=${{width:'16%'}}/></colgroup>
         <thead><tr><th>${_t("#")}</th><th>${_t("Description")}</th><th>${_t("Unit")}</th><th>${_t("Qty")}</th>
-          <th>${_t("Rate AED")}</th><th>${_t("Amount AED")}</th></tr></thead>
+          <th>${ivCur==='AED'?_t("Rate AED"):'Rate '+ivCur}</th><th>${ivCur==='AED'?_t("Amount AED"):'Amount '+ivCur}</th></tr></thead>
         <tbody>
           ${lines.map((l,i)=>html`<tr key=${l.id}>
             <td class="c">${i+1}</td>
@@ -12944,28 +12963,28 @@ function InvoicePage({id,clients,projects,settings,back}){
         <tr><td class="k">Subtotal</td><td class="v">${fmtN(subtotal)}</td></tr>
         <tr><td class="k">VAT ${iv.vat_applies?(nz(iv.vat_rate)*100).toFixed(0)+'%':'(not applicable)'}</td>
             <td class="v">${fmtN(vat)}</td></tr>
-        <tr class="grand"><td class="k">Total due (AED)</td><td class="v">${fmtN(total)}</td></tr>
+        <tr class="grand"><td class="k">Total due (${ivCur})</td><td class="v">${fmtN(total)}</td></tr>
         ${received>0.005 && html`<${Frag}>
           <tr><td class="k">Less received</td><td class="v">${fmtN(received)}</td></tr>
-          <tr class="grand"><td class="k">Balance (AED)</td><td class="v">${fmtN(outstanding)}</td></tr>
+          <tr class="grand"><td class="k">Balance (${ivCur})</td><td class="v">${fmtN(outstanding)}</td></tr>
         </${Frag}>`}
       </tbody></table>
 
-      <div class="iv-words">${inWords(outstanding>0.005?outstanding:total)}</div>
+      <div class="iv-words">${inWords(outstanding>0.005?outstanding:total, ivCur)}</div>
 
       <div class="iv-foot">
         ${iv.payment_terms && html`<div><b>Payment terms:</b> ${iv.payment_terms}</div>`}
         ${iv.notes && iv.notes.split('\n').filter(t=>t.trim())
           .map((t,n)=>html`<div key=${n}>${t}</div>`)}
-        ${cfg('bank_details') && html`<${Frag}><h4>${_t("Payment to")}</h4>
-          ${cfg('bank_details').split('\n').map((t,n)=>html`<div key=${n}>${t}</div>`)}</${Frag}>`}
-        ${cfg('terms_conditions') && html`<${Frag}><h4>${_t("Terms and conditions")}</h4>
-          ${cfg('terms_conditions').split('\n').map((t,n)=>html`<div key=${n}>${t}</div>`)}</${Frag}>`}
+        ${oc('bank_details') && html`<${Frag}><h4>${_t("Payment to")}</h4>
+          ${oc('bank_details').split('\n').map((t,n)=>html`<div key=${n}>${t}</div>`)}</${Frag}>`}
+        ${oc('terms','terms_conditions') && html`<${Frag}><h4>${_t("Terms and conditions")}</h4>
+          ${oc('terms','terms_conditions').split('\n').map((t,n)=>html`<div key=${n}>${t}</div>`)}</${Frag}>`}
       </div>
 
       <div class="pa-sign">
         <span>Received by, client</span>
-        <span>For ${cfg('company_legal_name').toUpperCase()}</span>
+        <span>For ${oc('legal_name','company_legal_name').toUpperCase()}</span>
       </div>
     </div>`;
 }
