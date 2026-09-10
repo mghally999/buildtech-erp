@@ -127,9 +127,10 @@ checks.add_row_error = async page => {
 
 // F-026: held stock and more than is on hand cannot be issued from the screen.
 checks.held_stock = async page => {
-  const [wh] = await sql("insert into warehouses (name, dcd_certified) values ('ZZTEST warehouse', false) returning id");
-  const [dang] = await sql("insert into products (category, name, is_dangerous) values ((select category from products limit 1), 'ZZTEST dangerous product', true) returning id");
-  const [safe] = await sql("insert into products (category, name, is_dangerous) values ((select category from products limit 1), 'ZZTEST plain product', false) returning id");
+  // a certified warehouse, one approved product that may move and one still waiting on its approval
+  const [wh] = await sql("insert into warehouses (name, dcd_certified, dcd_certificate_ref, dcd_expiry) values ('ZZTEST warehouse', true, 'ZZTEST', current_date + 365) returning id");
+  const [dang] = await sql("insert into products (category, name, is_dangerous, dcd_approved) values ((select category from products limit 1), 'ZZTEST dangerous product', true, false) returning id");
+  const [safe] = await sql("insert into products (category, name, is_dangerous, dcd_approved, dcd_expiry) values ((select category from products limit 1), 'ZZTEST plain product', false, true, current_date + 365) returning id");
   await sql(`insert into stock_movements (product_id, warehouse_id, direction, quantity) values ('${dang.id}', '${wh.id}', 'in', 10), ('${safe.id}', '${wh.id}', 'in', 10)`);
   const [d] = await sql(`select blocked, block_reason from stock_detail where product_id='${dang.id}' and warehouse_id='${wh.id}'`);
   const field = label => page.locator(`.field:has(> label:has-text("${label}"))`);

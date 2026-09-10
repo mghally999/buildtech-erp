@@ -4551,6 +4551,19 @@ function Stock(){
     if(!prod) return setErr('Choose a product from the list.');
     if(!f.warehouse_id) return setErr('Choose a warehouse.');
     if(!(Number(f.quantity)>0)) return setErr('Enter a quantity greater than zero.');
+    if(f.direction==='out'){
+      // What is actually on the shelf, and whether it may leave. Held stock stays where it
+      // is until the civil defence paperwork is in order, and nobody issues more than is
+      // there; before this, both went out with a success message and the count went negative.
+      const here=detail.find(x=>x.product_id===prod.id && x.warehouse_id===f.warehouse_id);
+      const onHand=here?nz(here.qty_on_hand):0;
+      if(here && here.blocked)
+        return setErr('This stock is held: '+(here.block_reason||'the civil defence paperwork is not in order')
+          +'. It cannot be issued until that is cleared.');
+      if(Number(f.quantity)>onHand+1e-9)
+        return setErr('Only '+onHand+(here&&here.unit?' '+here.unit:'')+' of '+prod.name
+          +' is in that warehouse, so '+f.quantity+' cannot be issued.');
+    }
     const {error}=await sb.from('stock_movements').insert({
       product_id:prod.id, warehouse_id:f.warehouse_id, direction:f.direction,
       quantity:Number(f.quantity), project_id:f.project_id||null,
