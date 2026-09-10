@@ -2898,6 +2898,9 @@ const today = () => { const d=new Date(); return monthKey(d)+'-'+pad2(d.getDate(
 /* A setting is text in the database and a person types it. "0,70", "70 %" and "4,27 "
    have all been typed. NaN must never reach a price, so the number is read forgivingly,
    and when it still is not a number the caller's own default is used. */
+const settingNumber = (v, d) => { if(v==null || String(v).trim()==='') return d;
+  const n = Number(String(v).replace(/\s/g,'').replace('%','').replace(',','.'));
+  return isFinite(n) ? n : d; };
 const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d))/86400000) : null;
 
 const Logo = ({dark}) => html`
@@ -5634,8 +5637,7 @@ function NewOrderModal({quotes,projects,whs,rate,close,saved}){
     const [c,st]=await Promise.all([
       sb.from('products').select('*, product_packs(*), product_aliases(alias)'),
       sb.from('settings').select('*')]);
-    const cfgNum=(k,d)=>{const r=(st.data||[]).find(x=>x.key===k);
-      return r&&r.value!==''?Number(r.value):d;};
+    const cfgNum=(k,d)=>settingNumber(((st.data||[]).find(x=>x.key===k)||{}).value, d);
     setCat(c.data||[]);
     setRollKg(cfgNum('roll_kg',9));
     setCfg({disc:cfgNum('supply_discount',0.70), fx:cfgNum('eur_aed_rate',4.27)});
@@ -5656,8 +5658,7 @@ function NewOrderModal({quotes,projects,whs,rate,close,saved}){
        order came back saying there was nothing to order. */
     const secs=(sec.data||[]).map(s=>({...s,lines:normaliseSection((s.quotation_lines||[])
       .slice().sort((a,b)=>(a.position||0)-(b.position||0)))}));
-    const cfgNum=(k,d)=>{const r=(st.data||[]).find(x=>x.key===k);
-      return r&&r.value!==''?Number(r.value):d;};
+    const cfgNum=(k,d)=>settingNumber(((st.data||[]).find(x=>x.key===k)||{}).value, d);
     const c=cargoFromQuotation(secs,cat.data||[],cfgNum);
     // a roll's weight is a setting, not a property of the pack, and the order needs it to
     // write a weight against a line measured in square metres
@@ -7166,10 +7167,16 @@ function OfficesPanel({offices,reload,owner}){
     let bad=null;
     for(const o of offices||[]){
       const n=f[o.id]||{};
+      /* A rate typed as 0,21 became NaN and the save failed with a Postgres sentence; a
+         rate typed as 21 became 2100% and saved. Both are read as the person meant them. */
+      let vat = settingNumber(n.vat_rate, NaN);
+      if(String(n.vat_rate||'').includes('%') || vat>1) vat = vat/100;
+      if(!isFinite(vat) || vat<0 || vat>1){ setBusy(false);
+        return setErr('The VAT rate for '+o.name+' is a fraction: 0.05 for 5%, 0.21 for 21%.'); }
       const {error}=await sb.from('offices').update({
         name:n.name, legal_name:n.legal_name, address:n.address, email:n.email,
         tax_id:n.tax_id, tax_id_label:n.tax_id_label,
-        vat_rate:nz(n.vat_rate), quote_prefix:n.quote_prefix||'',
+        vat_rate:vat, quote_prefix:n.quote_prefix||'',
         quote_suffix:n.quote_suffix||'', quote_digits:Number(n.quote_digits)||4,
         bank_details:n.bank_details, terms:n.terms}).eq('id',o.id);
       if(error) bad=error.message;
@@ -7351,12 +7358,25 @@ function Settings({settings,reload,me,offices,reloadMe}){
   };
   useEffect(()=>{setF(Object.fromEntries(settings.map(s=>[s.key,s.value])));},[settings]);
   const save=async()=>{
-    setBusy(true); setMsg(''); setErr('');
+    setMsg(''); setErr('');
+    /* The pricing and freight values are the numbers every price is built on. A comma or
+       a percent sign in one of them used to become NaN somewhere deep inside a quotation,
+       with nothing on screen to say why. They are checked here, and written back the way
+       the code and Postgres both read them. */
+    const numeric = new Set(SETTING_GROUPS.filter(g=>g[0]==='pricing'||g[0]==='freight').flatMap(g=>g[3]));
+    const next = {...f};
+    for(const s of settings){
+      if(!numeric.has(s.key) || next[s.key]===s.value) continue;
+      const n = settingNumber(next[s.key], NaN);
+      if(!isFinite(n) || n<0) return setErr(s.label+' has to be a number: 0.70 for a 70% discount, 4.27 for the rate.');
+      next[s.key] = String(n);
+    }
+    setBusy(true);
     let bad=null;
     for(const s of settings){
-      if(f[s.key]!==s.value){
+      if(next[s.key]!==s.value){
         const {error}=await sb.from('settings')
-          .update({value:f[s.key],updated_at:new Date().toISOString()}).eq('key',s.key);
+          .update({value:next[s.key],updated_at:new Date().toISOString()}).eq('key',s.key);
         if(error) bad=error.message;
       }
     }
@@ -7818,8 +7838,7 @@ function cargoFromQuotation(secs, products, cfgNum){
 
 /* What a forwarder is told, and what we are still missing before they can be firm. */
 function ShippingRequest({q, secs, cat, trans, settings, client}){
-  const cfgNum=(k,d)=>{ const v=settings.find(s=>s.key===k)?.value;
-                        return v==null||v===''?d:Number(v); };
+  const cfgNum=(k,d)=>settingNumber(settings.find(s=>s.key===k)?.value, d);
   const c = useMemo(()=>cargoFromQuotation(secs, cat, cfgNum), [secs, cat, settings]);
   const [sdsFiles,setSdsFiles]=useState([]);
   const [packBusy,setPackBusy]=useState(''); const [packErr,setPackErr]=useState('');
@@ -10179,9 +10198,9 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
 
   const cfg = k => (settings||[]).find(s=>s.key===k)?.value;
   const cur = office ? office.currency : 'AED';
-  const supplyDisc = Number(cfg('supply_discount')||0.70);
-  const fxRate     = cur==='EUR' ? 1 : Number(cfg('eur_aed_rate')||rate||4.27);
-  const marginPct  = Math.round(Number(cfg('default_margin')||0.45)*100);
+  const supplyDisc = settingNumber(cfg('supply_discount'), 0.70);
+  const fxRate     = cur==='EUR' ? 1 : settingNumber(cfg('eur_aed_rate'), rate||4.27);
+  const marginPct  = Math.round(settingNumber(cfg('default_margin'), 0.45)*100);
   const costPerKg = p => {
     const per=k=>nz(k.eur_per_unit)||(nz(k.pack_qty)?nz(k.eur_total)/nz(k.pack_qty):0);
     const list=(p.product_packs||[]).filter(k=>!k.is_poa).map(per)
@@ -10605,7 +10624,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
   useEffect(()=>{ cfgRef.current = settings;
     if(!marginSeeded.current && settings.length){
       const d=settings.find(s=>s.key==='default_margin');
-      if(d) setTargetPct(Math.round(Number(d.value)*100));
+      if(d) setTargetPct(Math.round(settingNumber(d.value, 0.45)*100));
       marginSeeded.current = true;
     }
   },[settings]);
@@ -10748,7 +10767,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
       // whatever else happens, never overwrite work already on the screen
       if(qRef.current) return;
       const cfgv=k=>(cfgRef.current||[]).find(x=>x.key===k)?.value;
-      const days=Number(cfgv('quote_validity_days')||30);
+      const days=settingNumber(cfgv('quote_validity_days'), 30);
       // A new quotation belongs to the office you are working in, and takes its currency,
       // its VAT rate and its language from that. Nobody sets those by hand, which is the
       // only way a Belgian job never goes out priced in dirhams at 5% VAT.
@@ -10760,7 +10779,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
             office_id: home?home.id:null,
             currency:  home?home.currency:'AED',
             language:  home?home.default_lang:'en',
-            vat_rate: home?Number(home.vat_rate):Number(cfgv('vat_rate')||0.05),
+            vat_rate: home?Number(home.vat_rate):settingNumber(cfgv('vat_rate'), 0.05),
             vat_applies:true,
             remarks:cfgv('quote_remarks')||'',meeting_notes:'',
             ...(fromScope ? {
@@ -10983,8 +11002,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
              || catKeys.find(x=>whole.startsWith(x.k));
     return hit ? hit.p : null;
   };
-  const supplyDisc = Number(cfg('supply_discount')||0.70);
-  const fxRate     = qCur==='EUR' ? 1 : Number(cfg('eur_aed_rate')||rate||4.27);
+  const supplyDisc = settingNumber(cfg('supply_discount'), 0.70);
+  const fxRate     = qCur==='EUR' ? 1 : settingNumber(cfg('eur_aed_rate'), rate||4.27);
   // cheapest priced pack, per kilo, in the quotation's currency
   // Krypton's own list price per unit, straight off the catalogue: the CATALOGUS column
   // of their price sheet. The cheapest pack, because that is the one anybody would buy.
@@ -12535,7 +12554,7 @@ function NewInvoiceModal({clients,projects,settings,close,saved}){
       milestone_id:f.milestone_id||null, invoice_date:f.invoice_date,
       due_date:f.due_date||null, lpo_number:f.lpo_number||null,
       payment_terms:cfg('invoice_payment_terms')||null,
-      vat_applies:f.vat_applies, vat_rate:Number(cfg('vat_rate'))||0.05,
+      vat_applies:f.vat_applies, vat_rate:settingNumber(cfg('vat_rate'), 0.05),
       status:'draft'}).select().single();
     if(error){setBusy(false);setErr(error.message);return;}
     const m=mils.find(x=>x.id===f.milestone_id);
@@ -13710,7 +13729,7 @@ function App(){
     done=${()=>{ setPwDone(true);
                  try{ localStorage.removeItem('bt-needs-password'); history.replaceState(null,'',location.pathname); }catch(e){} }}/>`;
 
-  const rate = Number(settings.find(s=>s.key==='eur_aed_rate')?.value || 4.27);
+  const rate = settingNumber(settings.find(s=>s.key==='eur_aed_rate')?.value, 4.27);
 
   // The office somebody is working in. Their own office is the sensible opening position,
   // and the choice sticks after that. "Both" is a real answer, because the owners want the
