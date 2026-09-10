@@ -2889,7 +2889,15 @@ const STAGES = ['inquiry','quoted','negotiation','won','lost'];
 const OPEN_STAGES = ['inquiry','quoted','negotiation'];
 const pillLabel = st => _t({inquiry:'Inquiry',quoted:'Quoted',negotiation:'Negotiation',
                              won:'Won',lost:'Lost'}[st]||st);
-const today = () => new Date().toISOString().slice(0,10);
+/* The date where the person is, not the date in Greenwich. toISOString() is UTC, so
+   between midnight and four in the morning in Dubai every default date was yesterday's,
+   and a bill entered at one in the morning was dated the day before. */
+const pad2 = n => String(n).padStart(2,'0');
+const monthKey = d => d.getFullYear()+'-'+pad2(d.getMonth()+1);
+const today = () => { const d=new Date(); return monthKey(d)+'-'+pad2(d.getDate()); };
+/* A setting is text in the database and a person types it. "0,70", "70 %" and "4,27 "
+   have all been typed. NaN must never reach a price, so the number is read forgivingly,
+   and when it still is not a number the caller's own default is used. */
 const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d))/86400000) : null;
 
 const Logo = ({dark}) => html`
@@ -3053,9 +3061,11 @@ function Operations({go,settings}){
   const committed = onOrder + quoted;
 
   // twelve months of money in and money out, for the shapes under the vitals
+  // Local parts, not toISOString: local midnight on the first of a month is still the
+  // previous day in UTC anywhere east of Greenwich, so every key here was a month early.
   const months=(()=>{const k=[];const n=new Date();
     for(let i=11;i>=0;i--){const x=new Date(n.getFullYear(),n.getMonth()-i,1);
-      k.push(x.toISOString().slice(0,7));} return k;})();
+      k.push(monthKey(x));} return k;})();
   const shape=(rows,dateKey,amtKey)=>{
     const by={}; rows.forEach(r=>{const k=(r[dateKey]||'').slice(0,7);
       if(k) by[k]=(by[k]||0)+nz(r[amtKey]);});
@@ -11972,7 +11982,7 @@ function FinanceOverview({go}){
     const keys=[]; const now=new Date();
     for(let i=11;i>=0;i--){
       const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-      keys.push(d.toISOString().slice(0,7));
+      keys.push(monthKey(d));   // local parts; see the note on the home screen's months
     }
     const paid={}, got={};
     costs.filter(x=>x.paid_on).forEach(x=>{
