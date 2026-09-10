@@ -2885,6 +2885,27 @@ const AED0 = (n,cur) => fmtMoney(n,cur,{maximumFractionDigits:0});
 // a rate per square metre is a small number, so rounding it to whole dirhams loses the
 // difference between AED 28.95 and AED 29.44, which over 500 m2 is AED 245
 const AED2 = (n,cur) => fmtMoney(n,cur,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* Two offices, two currencies. A figure that carries no currency of its own (a project's
+   value, an invoice, a salary, an inquiry) is in its office's money. With one office on
+   screen that is the currency on screen and nothing needs converting. In the company view
+   the two are added up in dirhams, the Belgian ones converted at the rate in Settings, and
+   the screen says so, because a euro and a dirham added as if they were the same is a
+   number that means nothing. */
+let OFFICE_BY_ID = {};   // id → office, kept current by App on every render
+let EUR_AED = 4.27;      // the rate in Settings, likewise
+const officeCur = id => (OFFICE_BY_ID[id] && OFFICE_BY_ID[id].currency) || 'AED';
+// a value kept in `cur`, as a number in the currency on screen
+const toActive = (v, cur) => { cur = cur || 'AED';
+  if(cur === ACTIVE_CUR) return nz(v);
+  return cur === 'EUR' ? nz(v) * EUR_AED : ACTIVE_CUR === 'EUR' ? nz(v) / EUR_AED : nz(v); };
+// the same for a record that is in its office's money
+const officeToActive = (v, officeId) => toActive(v, officeCur(officeId));
+// a few words under a company-wide total, so nobody takes it for a plain sum
+const bothNote = () => OFFICE_ID ? '' : ', Belgium counted at ' + EUR_AED + ' to the euro';
+// and under a bank total when not every account is kept in the currency on screen
+const bankNote = accts => accts.some(a => (a.currency || 'AED') !== ACTIVE_CUR)
+  ? ', converted at ' + EUR_AED + ' to the euro' : '';
 const STAGES = ['inquiry','quoted','negotiation','won','lost'];
 const OPEN_STAGES = ['inquiry','quoted','negotiation'];
 const pillLabel = st => _t({inquiry:'Inquiry',quoted:'Quoted',negotiation:'Negotiation',
@@ -3052,15 +3073,15 @@ function Operations({go,settings}){
   const t=today();
 
   // ── the three vitals ────────────────────────────────────────────────────────────
-  const bank   = d.cp.reduce((s,b)=>s+nz(b.balance),0);
+  const bank   = d.cp.reduce((s,b)=>s+toActive(b.balance,b.currency),0);
   const live   = d.iv.filter(i=>!['draft','cancelled'].includes(i.status));
-  const owed   = live.reduce((s,i)=>s+nz(i.outstanding),0);
+  const owed   = live.reduce((s,i)=>s+officeToActive(i.outstanding,i.office_id),0);
   const overdue= live.filter(i=>nz(i.outstanding)>0.005 && i.due_date && i.due_date<t);
   // what is promised out and has not been paid yet: open orders plus accepted quotations
   const onOrder = d.pot.filter(x=>!['received','cancelled'].includes(x.status))
-                       .reduce((s,x)=>s+nz(x.value_aed),0);
+                       .reduce((s,x)=>s+toActive(x.value_aed,'AED'),0);
   const quoted  = d.cm.filter(c=>['quoted','accepted'].includes(c.status))
-                      .reduce((s,c)=>s+nz(c.amount_aed),0);
+                      .reduce((s,c)=>s+toActive(c.amount_aed,'AED'),0);
   const committed = onOrder + quoted;
 
   // twelve months of money in and money out, for the shapes under the vitals
@@ -3131,7 +3152,7 @@ function Operations({go,settings}){
   d.inq.filter(i=>!['won','lost'].includes(i.stage)
                 && i.last_activity && i.last_activity < addDays(t,-14))
        .forEach(i=>push('md','No movement on '+(i.project_name||'an inquiry')+' for a fortnight',
-         (i.clients?.name||'')+' '+AED0(i.estimated_value),['pipeline']));
+         (i.clients?.name||'')+' '+AED0(i.estimated_value,officeCur(i.office_id)),['pipeline']));
   d.vf.filter(v=>v.follow_up_overdue).forEach(v=>push('hi',
     v.name+' was promised something',
     'Due '+fmtDate(v.next_due)+', still nothing priced',['visits',v.client_id]));
@@ -3161,11 +3182,11 @@ function Operations({go,settings}){
       (()=>{const q=d.vf.filter(v=>['quoted','won'].includes(v.stage)).length;
         return q+' of '+d.vf.length+' priced';})(),
       d.vf.some(v=>v.follow_up_overdue)],
-    ['pipeline','◇','Pipeline',AED0(openInq.reduce((s,i)=>s+nz(i.estimated_value),0)),
+    ['pipeline','◇','Pipeline',AED0(openInq.reduce((s,i)=>s+officeToActive(i.estimated_value,i.office_id),0)),
       openInq.length+' open '+plural(openInq.length,'opportunity','opportunities'),false],
     ['quotations','▤','Quotations','—','Build and send',false],
     ['projects','◱','Projects',String(liveProj.length),
-      AED0(liveProj.reduce((s,p)=>s+nz(p.value),0))+' under way',false],
+      AED0(liveProj.reduce((s,p)=>s+officeToActive(p.value,p.office_id),0))+' under way',false],
     ['orders','⬒','Orders',AED0(onOrder),
       openPo.length+' '+plural(openPo.length,'order')+' out',
       d.po.some(x=>x.expected_on&&x.expected_on<t)],
@@ -3188,7 +3209,7 @@ function Operations({go,settings}){
     <div class="ops-hero">
       <div class="vital">
         <div class="vk">In the bank</div><div class="vv">${AED0(bank)}</div>
-        <div class="vs">Across ${d.cp.length} ${plural(d.cp.length,'account')}</div>
+        <div class="vs">Across ${d.cp.length} ${plural(d.cp.length,'account')}${bankNote(d.cp)}</div>
         <${Spark} bars=${inShape}/>
       </div>
       <div class=${'vital'+(overdue.length?' hot':'')}>
@@ -3200,7 +3221,7 @@ function Operations({go,settings}){
       </div>
       <div class="vital">
         <div class="vk">Committed out</div><div class="vv">${AED0(committed)}</div>
-        <div class="vs">${AED0(onOrder)} on order, ${AED0(quoted)} quoted to us</div>
+        <div class="vs">${AED0(onOrder)} on order, ${AED0(quoted)} quoted to us${bothNote()}</div>
         <${Spark} bars=${outShape}/>
       </div>
     </div>
@@ -3266,9 +3287,9 @@ function Dashboard({go,settings}){
       sb.from('open_order_lines').select('*')]);
     setRows(inq.data||[]);
     const invs=(iv.data||[]).filter(x=>!['draft','cancelled'].includes(x.status));
-    setCash({bank:(cp.data||[]).reduce((s,b)=>s+nz(b.balance),0),
+    setCash({bank:(cp.data||[]).reduce((s,b)=>s+toActive(b.balance,b.currency),0),
              accounts:(cp.data||[]).length,
-             owed:invs.reduce((s,x)=>s+nz(x.outstanding),0),
+             owed:invs.reduce((s,x)=>s+officeToActive(x.outstanding,x.office_id),0),
              // Finance counts an invoice as open when money is still owed on it. The
              // Dashboard counted every sent invoice, so the two disagreed.
              invoiced:invs.filter(x=>nz(x.outstanding)>0.005).length,
@@ -3303,7 +3324,7 @@ function Dashboard({go,settings}){
              due:sm.filter(x=>x.eta && x.eta<=today()).length,
              next:withEta.length?withEta[0].eta:null});
     const liveIds=new Set((pj.data||[]).filter(x=>['upcoming','in_progress'].includes(x.status)).map(x=>x.id));
-    setFin({owed:(tot.data||[]).reduce((s,t)=>s+nz(t.outstanding),0), live:liveIds.size});
+    setFin({owed:(tot.data||[]).reduce((s,t)=>s+officeToActive(t.outstanding,t.office_id),0), live:liveIds.size});
     const sd=sp.data||[];
     setStock({short:sd.filter(r=>nz(r.available)<0).length,
               reorder:sd.filter(r=>nz(r.reorder_level)>0 && nz(r.on_hand)<=nz(r.reorder_level)).length,
@@ -3315,10 +3336,10 @@ function Dashboard({go,settings}){
   if(!rows) return html`<div class="spinner"></div>`;
 
   const open = rows.filter(r=>OPEN_STAGES.includes(r.stage));
-  const total = open.reduce((s,r)=>s+Number(r.estimated_value||0),0);
+  const total = open.reduce((s,r)=>s+officeToActive(r.estimated_value,r.office_id),0);
   const byStage = OPEN_STAGES.map(st=>({
     st, n: rows.filter(r=>r.stage===st).length,
-    v: rows.filter(r=>r.stage===st).reduce((s,r)=>s+Number(r.estimated_value||0),0)}));
+    v: rows.filter(r=>r.stage===st).reduce((s,r)=>s+officeToActive(r.estimated_value,r.office_id),0)}));
   const quiet = open.filter(r=>{const d=daysSince(r.last_contact_date); return d===null||d>14;});
   const won = rows.filter(r=>r.stage==='won');
   const maxV = Math.max(1,...byStage.map(b=>b.v));
@@ -3327,11 +3348,11 @@ function Dashboard({go,settings}){
     <div class="page-head"><h1>${_t("Dashboard")}</h1></div>
     <div class="cards">
       <div class="card"><div class="k">Pipeline value</div><div class="v">${AED0(total)}</div>
-        <div class="s">${open.length} open ${open.length===1?'opportunity':'opportunities'}</div></div>
+        <div class="s">${open.length} open ${open.length===1?'opportunity':'opportunities'}${bothNote()}</div></div>
       <div class="card ${quiet.length?'alert':'okc'}"><div class="k">No activity 14 days</div>
         <div class="v">${quiet.length}</div>
         <div class="s">${quiet.length?'Needs chasing':'All current'}</div></div>
-      <div class="card"><div class="k">Won</div><div class="v">${AED0(won.reduce((s,r)=>s+Number(r.estimated_value||0),0))}</div>
+      <div class="card"><div class="k">Won</div><div class="v">${AED0(won.reduce((s,r)=>s+officeToActive(r.estimated_value,r.office_id),0))}</div>
         <div class="s">${won.length} ${won.length===1?'project':'projects'}</div></div>
       <div class=${'card card-click '+(cash.overdue?'alert':cash.owed>0?'':'okc')} onClick=${()=>go('finance')}>
         <div class="k">Owed to us</div>
@@ -3395,7 +3416,7 @@ function Dashboard({go,settings}){
             <td><b>${r.clients?.name||'—'}</b></td>
             <td>${r.project_name}</td>
             <td><span class="pill ${r.stage}">${r.stage}</span></td>
-            <td class="n">${AED0(r.estimated_value)}</td>
+            <td class="n">${AED0(r.estimated_value,officeCur(r.office_id))}</td>
             <td class="n"><span class="pill quiet">${daysSince(r.last_contact_date)??'never'} d</span></td>
             <td class="muted">${r.next_action||'—'}</td>
           </tr>`)}</tbody>
@@ -3444,7 +3465,7 @@ function Pipeline(){
             <td>${r.project_name}</td>
             <td class="muted">${r.location||'—'}</td>
             <td><span class="pill ${r.stage}">${r.stage}</span></td>
-            <td class="n">${AED0(r.estimated_value)}</td>
+            <td class="n">${AED0(r.estimated_value,officeCur(r.office_id))}</td>
             <td class="n">${r.last_contact_date||'—'} ${quiet?html`<span class="pill quiet" style=${{marginLeft:'6px'}}>${d??'never'} d</span>`:''}</td>
             <td class="muted">${r.next_action||'—'}</td>
           </tr>`;})}</tbody>
@@ -3789,11 +3810,11 @@ function Clients({focus,clearFocus,go}){
   const [prospects,setProspects]=useState(0);
   const load=useCallback(async()=>{
     const [cl,qt,pj]=await Promise.all([
-      sb.from('clients').select('*, inquiries(id,project_name,stage,estimated_value,next_action)')
+      sb.from('clients').select('*, inquiries(id,project_name,stage,estimated_value,next_action,office_id)')
         .neq('kind','prospect').order('name'),
       sb.from('quotations').select('id,reference,project_name,quote_date,status,client_id')
         .order('created_at',{ascending:false}),
-      sb.from('projects').select('id,name,status,value,client_id').order('name')]);
+      sb.from('projects').select('id,name,status,value,client_id,office_id').order('name')]);
     setRows(cl.data||[]); setQuotes(qt.data||[]); setProjs(pj.data||[]);
     const pv=await sb.from('clients').select('id',{count:'exact',head:true}).eq('kind','prospect');
     setProspects(pv.count||0);
@@ -3884,7 +3905,7 @@ function Clients({focus,clearFocus,go}){
         <thead><tr><th>${_t("Project")}</th><th>${_t("Stage")}</th><th class="n">${_t("Value")}</th><th>${_t("Next action")}</th></tr></thead>
         <tbody>${cur.inquiries.map(i=>html`<tr key=${i.id}>
           <td><b>${i.project_name}</b></td><td><span class="pill ${i.stage}">${i.stage}</span></td>
-          <td class="n">${AED0(i.estimated_value)}</td><td class="muted">${i.next_action||'—'}</td>
+          <td class="n">${AED0(i.estimated_value,officeCur(i.office_id))}</td><td class="muted">${i.next_action||'—'}</td>
         </tr>`)}</tbody></table></div>`
         : html`<div class="empty">No inquiries for this client yet.</div>`}
     </div>
@@ -3908,7 +3929,7 @@ function Clients({focus,clearFocus,go}){
           <thead><tr><th>${_t("Project")}</th><th>${_t("Status")}</th><th class="n">${_t("Value")}</th></tr></thead>
           <tbody>${ps.map(x=>html`<tr key=${x.id}>
             <td><b>${x.name}</b></td><td class="muted">${x.status}</td>
-            <td class="n">${AED0(x.value)}</td></tr>`)}</tbody></table></div>`
+            <td class="n">${AED0(x.value,officeCur(x.office_id))}</td></tr>`)}</tbody></table></div>`
           : html`<div class="empty">No projects for this client yet.</div>`}
       </div></${Frag}>`; })()}
     <${CorrespondencePanel} clientId=${cur.id} heading="What was said"/>
@@ -4093,7 +4114,7 @@ function Projects({focus,clearFocus}){
       back=${()=>{setOpenId(null);load();}}/>`;
 
   const live=rows.filter(r=>['upcoming','in_progress'].includes(r.status));
-  const owed=Object.values(totals).reduce((s,t)=>s+nz(t.outstanding),0);
+  const owed=Object.values(totals).reduce((s,t)=>s+officeToActive(t.outstanding,t.office_id),0);
 
   return html`
     <div class="page-head"><h1>${_t("Projects")}</h1>
@@ -4101,7 +4122,7 @@ function Projects({focus,clearFocus}){
     ${err && html`<div class="err">${err}</div>`}
     <div class="cards">
       <div class="card"><div class="k">Live projects</div><div class="v">${live.length}</div>
-        <div class="s">${AED0(live.reduce((s,r)=>s+nz(r.value),0))} of work</div></div>
+        <div class="s">${AED0(live.reduce((s,r)=>s+officeToActive(r.value,r.office_id),0))} of work${bothNote()}</div></div>
       <div class=${'card '+(owed>0?'alert':'okc')}><div class="k">Invoiced, not paid</div>
         <div class="v">${AED0(owed)}</div><div class="s">Across all projects</div></div>
       <div class="card"><div class="k">Completing this month</div>
@@ -4129,15 +4150,15 @@ function Projects({focus,clearFocus}){
         <thead><tr><th>${_t("Project")}</th><th>${_t("Client")}</th><th>${_t("Site")}</th><th>${_t("Status")}</th>
           <th class="n">${_t("Value")}</th><th class="n">${_t("Invoiced")}</th><th class="n">${_t("Outstanding")}</th>
           <th class="n">${_t("Due")}</th></tr></thead>
-        <tbody>${rows.map(r=>{const t=totals[r.id]||{};
+        <tbody>${rows.map(r=>{const t=totals[r.id]||{}; const c=officeCur(r.office_id);
           return html`<tr key=${r.id} class="click" onClick=${()=>setOpenId(r.id)}>
             <td><b>${r.name}</b></td>
             <td>${r.clients?.name||'—'}</td>
             <td class="muted">${r.site||'—'}</td>
             <td><span class=${'pstat '+r.status}>${pLabel(r.status)}</span></td>
-            <td class="n">${AED0(r.value)}</td>
-            <td class="n">${AED0(t.invoiced)}</td>
-            <td class="n" style=${{color:nz(t.outstanding)>0?'var(--crit)':''}}>${AED0(t.outstanding)}</td>
+            <td class="n">${AED0(r.value,c)}</td>
+            <td class="n">${AED0(t.invoiced,c)}</td>
+            <td class="n" style=${{color:nz(t.outstanding)>0?'var(--crit)':''}}>${AED0(t.outstanding,c)}</td>
             <td class="n muted">${r.expected_completion||'—'}</td>
           </tr>`;})}</tbody></table></div>`
         : html`<div class="empty">No projects yet. Create one from a won quotation.</div>`}
@@ -4247,6 +4268,7 @@ function ProjectPage({id,clients,back}){
 
   const cost=nz(p.material_cost)+nz(p.freight_cost)+nz(p.duty_cost)+nz(p.other_cost);
   const gross=nz(p.value)-cost;
+  const pCur=officeCur(p.office_id);   // the project's money, whichever office is on screen
   const marginPct=nz(p.value)?gross/nz(p.value)*100:null;
   const scheduled=mils.reduce((s,m)=>s+nz(m.amount),0);
   const overScheduled=nz(p.value)>0 && scheduled>nz(p.value)+0.005;
@@ -4311,14 +4333,14 @@ function ProjectPage({id,clients,back}){
     ${msg && html`<div class="ok">${msg}</div>`}
 
     <div class="cards">
-      <div class="card"><div class="k">Value</div><div class="v">${AED0(p.value)}</div>
+      <div class="card"><div class="k">Value</div><div class="v">${AED0(p.value,pCur)}</div>
         <div class="s">${p.clients?.name||'no client'}${p.quotations?.reference?' · '+p.quotations.reference:''}</div></div>
       <div class="card"><div class="k">Gross profit</div>
-        <div class="v" style=${{color:gross<0?'var(--crit)':'var(--good)'}}>${AED0(gross)}</div>
+        <div class="v" style=${{color:gross<0?'var(--crit)':'var(--good)'}}>${AED0(gross,pCur)}</div>
         <div class="s">${marginPct==null?'—':marginPct.toFixed(1)+'% after all costs'}</div></div>
       <div class=${'card '+(outstanding>0?'alert':'')}><div class="k">Invoiced, not paid</div>
-        <div class="v">${AED0(outstanding)}</div>
-        <div class="s">${AED0(invoiced)} invoiced, ${AED0(paid)} received</div></div>
+        <div class="v">${AED0(outstanding,pCur)}</div>
+        <div class="s">${AED0(invoiced,pCur)} invoiced, ${AED0(paid,pCur)} received</div></div>
       <div class="card"><div class="k">Progress</div><div class="v">${p.progress_pct}%</div>
         <div class="bar-s"><i style=${{width:p.progress_pct+'%'}}></i></div></div>
     </div>
@@ -4431,10 +4453,10 @@ function ProjectPage({id,clients,back}){
           <input type="number" step="0.01" value=${p.other_cost??''} onInput=${e=>set('other_cost',e.target.value)}/></div>
       </div>
       <div class="tot">
-        <span class="lbl">${_t("Value")}</span><span class="val">${AED(p.value)}</span>
-        <span class="lbl">${_t("Total cost")}</span><span class="val">${AED(cost)}</span>
+        <span class="lbl">${_t("Value")}</span><span class="val">${AED(p.value,pCur)}</span>
+        <span class="lbl">${_t("Total cost")}</span><span class="val">${AED(cost,pCur)}</span>
         <span class="lbl"><b>Gross profit</b></span>
-        <span class=${'val big '+(gross<0?'neg':'pos')}>${AED(gross)}${marginPct==null?'':' ('+marginPct.toFixed(1)+'%)'}</span>
+        <span class=${'val big '+(gross<0?'neg':'pos')}>${AED(gross,pCur)}${marginPct==null?'':' ('+marginPct.toFixed(1)+'%)'}</span>
       </div>
       <p class="muted" style=${{marginTop:'12px'}}>Freight and duty belong here, not in the quotation. Leave them out and the margin flatters the job.</p>
     </div></div>
@@ -4443,8 +4465,8 @@ function ProjectPage({id,clients,back}){
       <div class="panel-head"><h2>${_t("Payment milestones")}</h2>
         <span class=${'sp '+(overScheduled?'':'muted')}
           style=${overScheduled?{color:'var(--crit)',fontWeight:700}:null}>
-          ${AED0(milTotal)} of ${AED0(p.value)} scheduled${
-            overScheduled?', which is '+AED0(scheduled-nz(p.value))+' more than the project is worth':''}</span></div>
+          ${AED0(milTotal,pCur)} of ${AED0(p.value,pCur)} scheduled${
+            overScheduled?', which is '+AED0(scheduled-nz(p.value),pCur)+' more than the project is worth':''}</span></div>
       <div class="milhead"><span>Milestone</span><span>%</span><span>Amount</span>
         <span>Due</span><span>Invoiced on</span><span>Paid on</span><span></span></div>
       ${mils.map((m,i)=>html`<div class="milrow" key=${m.id}>
@@ -11087,9 +11109,9 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
       text: p.toFixed(1)+'%',
       tone: pctTone(p),
       hint: p<0
-        ? 'Below cost by ' + AED(nz(l.cost_rate)-sell) + ' per ' + (l.unit||'unit')
-        : 'Margin on the sell rate: ' + AED(sell-nz(l.cost_rate)) + ' per '
-          + (l.unit||'unit') + ' kept out of ' + AED(sell) + '. The same job as a mark-up on '
+        ? 'Below cost by ' + AED(nz(l.cost_rate)-sell,qCur) + ' per ' + (l.unit||'unit')
+        : 'Margin on the sell rate: ' + AED(sell-nz(l.cost_rate),qCur) + ' per '
+          + (l.unit||'unit') + ' kept out of ' + AED(sell,qCur) + '. The same job as a mark-up on '
           + 'cost is ' + ((sell-nz(l.cost_rate))/nz(l.cost_rate)*100).toFixed(0) + '%.'
           + (p<floorPct ? ' Under your '+floorPct+'% floor.' : '')
     };
@@ -11352,11 +11374,11 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
             if(!total && !m) return null;
             return html`<span class="secmgn"
               title=${'This section comes to '+AED(total,qCur)
-                      +(m?'. Gross profit on it: '+AED(m.gp):'')
+                      +(m?'. Gross profit on it: '+AED(m.gp,qCur):'')
                       +(m&&m.partial?'. Some priced lines have no cost, they are left out.':'')}>
               <span class="secsum">${AED(total,qCur)}</span>
               ${m && html`<${Frag}><b class=${m.tone}>${m.pct.toFixed(1)}%</b>
-                <span>${AED(m.gp)}${m.partial?' *':''}</span></${Frag}>`}
+                <span>${AED(m.gp,qCur)}${m.partial?' *':''}</span></${Frag}>`}
             </span>`; })()}
           ${/* set this one section to a number, when a client argues about one trade */''}
           <span class="secprice">
@@ -11478,8 +11500,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
           dialog. Without it the blue section bars and the gold rate cells print white.</p>
         ${anyCost && uncosted.length>0 && html`<div class="warnbar" style=${{marginTop:'12px'}}>
           ${uncosted.length} priced ${plural(uncosted.length,'line')} ${uncosted.length===1?'has':'have'}
-          no cost rate, carrying ${AED(uncostedRevenue)} of the subtotal. The margin and the
-          floor cover only the ${AED(costedRevenue)} that is costed.</div>`}
+          no cost rate, carrying ${AED(uncostedRevenue,qCur)} of the subtotal. The margin and the
+          floor cover only the ${AED(costedRevenue,qCur)} that is costed.</div>`}
       </div>
       <div class="totmain">
       <div class="tot">
@@ -11493,9 +11515,9 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
         <span class="lbl"><b>Total</b></span><span class="val big">${AED(total,qCur)}</span>
         ${anyCost && html`<${Frag}>
           <span class="lbl">Cost${uncosted.length?' of the costed lines':''}</span>
-          <span class="val">${AED(costTotal)}</span>
+          <span class="val">${AED(costTotal,qCur)}</span>
           <span class="lbl">Gross profit${uncosted.length?' on those lines':''}</span>
-          <span class=${'val '+(gross<0?'neg':'pos')}>${AED(gross)}${marginPct==null?'':' ('+marginPct.toFixed(1)+'%)'}</span>
+          <span class=${'val '+(gross<0?'neg':'pos')}>${AED(gross,qCur)}${marginPct==null?'':' ('+marginPct.toFixed(1)+'%)'}</span>
         </${Frag}>`}
       </div>
 
@@ -11581,11 +11603,11 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
           </label>
         </div>
         <div class="tot">
-          <span class="lbl">${_t("Break even")}</span><span class="val">${AED(costTotal)}</span>
-          <span class="lbl">Lowest price at ${floorPct}%</span><span class="val">${AED(floorPrice)}</span>
+          <span class="lbl">${_t("Break even")}</span><span class="val">${AED(costTotal,qCur)}</span>
+          <span class="lbl">Lowest price at ${floorPct}%</span><span class="val">${AED(floorPrice,qCur)}</span>
           <span class="lbl">${_t("Room to move")}</span>
           <span class=${'val '+(room<0?'neg':'pos')}>
-            ${room<0?'Already below it by ':''}${AED(Math.abs(room))}${
+            ${room<0?'Already below it by ':''}${AED(Math.abs(room),qCur)}${
               costedRevenue>0?' ('+Math.abs(roomPct).toFixed(1)+'%)':''}</span>
         </div>
         <p class="muted">${room<0
@@ -11967,7 +11989,7 @@ function FinanceOverview({go}){
       sb.from('expenses').select('*').order('expense_date',{ascending:false}),
       sb.from('partner_ledger').select('*'),
       sb.from('payroll').select('*'),
-      sb.from('invoice_payments').select('paid_on,amount')]);
+      sb.from('invoice_payments').select('paid_on,amount,invoices!inner(office_id)')]);
     const e=cash.error||inv.error||exp.error||led.error||pay.error||rec.error;
     if(e) setErr(e.message);
     setD({cash:cash.data||[],inv:inv.data||[],exp:exp.data||[],
@@ -11975,18 +11997,20 @@ function FinanceOverview({go}){
   })();},[]);
   if(!d) return html`${err && html`<div class="err">${err}</div>`}<div class="spinner"></div>`;
 
-  const bank=d.cash.reduce((s,b)=>s+nz(b.balance),0);
+  const bank=d.cash.reduce((s,b)=>s+toActive(b.balance,b.currency),0);
   const live=d.inv.filter(i=>!['draft','cancelled'].includes(i.status));
-  const owed=live.reduce((s,i)=>s+nz(i.outstanding),0);
+  const owed=live.reduce((s,i)=>s+officeToActive(i.outstanding,i.office_id),0);
   const overdue=live.filter(i=>nz(i.outstanding)>0.005 && i.due_date && i.due_date<today());
   const unpaid=d.exp.filter(x=>!x.paid_on && x.kind==='expense');
-  const toPay=unpaid.reduce((s,x)=>s+nz(x.amount_aed),0);
+  // a cost in the currency on screen is exact; one in the other currency comes over at the rate
+  const expIn=x=>x.currency===ACTIVE_CUR ? nz(x.amount) : toActive(x.amount_aed,'AED');
+  const toPay=unpaid.reduce((s,x)=>s+expIn(x),0);
   const costs=d.exp.filter(x=>x.kind==='expense');
-  const spent=costs.reduce((s,x)=>s+nz(x.amount_aed),0);
-  const wages=d.pay.filter(x=>x.kind==='salary').reduce((s,x)=>s+nz(x.amount),0);
+  const spent=costs.reduce((s,x)=>s+expIn(x),0);
+  const wages=d.pay.filter(x=>x.kind==='salary').reduce((s,x)=>s+officeToActive(x.amount,x.office_id),0);
 
-  const drawings=d.pay.filter(x=>x.kind!=='salary').reduce((s,x)=>s+nz(x.amount),0);
-  const byCat={}; costs.forEach(x=>{byCat[x.category]=(byCat[x.category]||0)+nz(x.amount_aed);});
+  const drawings=d.pay.filter(x=>x.kind!=='salary').reduce((s,x)=>s+officeToActive(x.amount,x.office_id),0);
+  const byCat={}; costs.forEach(x=>{byCat[x.category]=(byCat[x.category]||0)+expIn(x);});
   // Payroll is not in the expenses table, so a chart built from expenses alone left the
   // biggest single outgoing off a picture headed "where the money has gone".
   if(wages)    byCat['Salaries']       = (byCat['Salaries']||0)       + wages;
@@ -12006,11 +12030,11 @@ function FinanceOverview({go}){
     }
     const paid={}, got={};
     costs.filter(x=>x.paid_on).forEach(x=>{
-      const k=monthOf(x.paid_on); paid[k]=(paid[k]||0)+nz(x.amount_aed);});
+      const k=monthOf(x.paid_on); paid[k]=(paid[k]||0)+expIn(x);});
     d.pay.filter(x=>x.paid_on).forEach(x=>{
-      const k=monthOf(x.paid_on); paid[k]=(paid[k]||0)+nz(x.amount);});
+      const k=monthOf(x.paid_on); paid[k]=(paid[k]||0)+officeToActive(x.amount,x.office_id);});
     (d.received||[]).forEach(x=>{
-      const k=monthOf(x.paid_on); got[k]=(got[k]||0)+nz(x.amount);});
+      const k=monthOf(x.paid_on); got[k]=(got[k]||0)+officeToActive(x.amount,x.invoices&&x.invoices.office_id);});
     const any=keys.some(k=>paid[k]||got[k]);
     const used=any?keys:[];
     return {months:used.map(k=>k.slice(5)+'/'+k.slice(2,4)),
@@ -12019,9 +12043,9 @@ function FinanceOverview({go}){
 
   const thisYear=today().slice(0,4);
   const yearCost=costs.filter(x=>(x.expense_date||'').startsWith(thisYear))
-                      .reduce((s,x)=>s+nz(x.amount_aed),0);
+                      .reduce((s,x)=>s+expIn(x),0);
   const yearWages=d.pay.filter(x=>(x.paid_on||x.period||'').startsWith(thisYear))
-                       .reduce((s,x)=>s+nz(x.amount),0);
+                       .reduce((s,x)=>s+officeToActive(x.amount,x.office_id),0);
 
   return html`
     ${err && html`<div class="err">${err}</div>`}
@@ -12029,7 +12053,7 @@ function FinanceOverview({go}){
       <div class="card card-click" onClick=${()=>go('banks')}><div class="k">In the bank</div>
         <div class="v">${AED0(bank)}</div>
         <div class="s">${d.cash.length?'Across '+d.cash.length+' '+(d.cash.length===1?'account':'accounts')
-                        :'No account set up yet'}</div></div>
+                        :'No account set up yet'}${bankNote(d.cash)}</div></div>
       <div class=${'card card-click '+(overdue.length?'alert':owed>0?'':'okc')} onClick=${()=>go('invoices')}>
         <div class="k">Owed to us</div><div class="v">${AED0(owed)}</div>
         <div class="s">${overdue.length?overdue.length+' past the due date'
@@ -12039,7 +12063,7 @@ function FinanceOverview({go}){
         <div class="s">${unpaid.length?unpaid.length+' '+plural(unpaid.length,'bill')+' not yet paid':'Everything is settled'}</div></div>
       <div class="card"><div class="k">Spent in ${thisYear}</div><div class="v">${AED0(yearCost+yearWages)}</div>
         <div class="s">${AED0(spent+wages)} since the company started${
-          wages?', of which '+AED0(wages)+' is wages and drawings':''}</div></div>
+          wages?', of which '+AED0(wages)+' is wages and drawings':''}${bothNote()}</div></div>
     </div>
 
     <div class="panel">
@@ -12048,14 +12072,14 @@ function FinanceOverview({go}){
       ${d.led.length ? d.led.map(p=>html`
         <div class="ledger" key=${p.partner_id}>
           <div><div class="nm">${p.name}</div>
-            <div class="sub">${nz(p.ownership_pct)}% owner · ${AED0(p.share_capital)} capital${
-              nz(p.funded)?' · '+AED0(p.funded)+' of costs funded':''}${
-              nz(p.drawings)?' · '+AED0(p.drawings)+' drawn out':''}</div></div>
-          <div class="amt">${AED0(p.contributed)}<div class="sub">put in</div></div>
-          <div class="amt">${AED0(p.fair_share)}<div class="sub">their share</div></div>
+            <div class="sub">${nz(p.ownership_pct)}% owner · ${AED0(p.share_capital,officeCur(p.office_id))} capital${
+              nz(p.funded)?' · '+AED0(p.funded,officeCur(p.office_id))+' of costs funded':''}${
+              nz(p.drawings)?' · '+AED0(p.drawings,officeCur(p.office_id))+' drawn out':''}</div></div>
+          <div class="amt">${AED0(p.contributed,officeCur(p.office_id))}<div class="sub">put in</div></div>
+          <div class="amt">${AED0(p.fair_share,officeCur(p.office_id))}<div class="sub">their share</div></div>
           <div class="verdict">
             <b style=${{color:nz(p.balance)>0.005?'var(--good)':nz(p.balance)<-0.005?'var(--crit)':''}}>
-              ${AED0(Math.abs(nz(p.balance)))}</b>
+              ${AED0(Math.abs(nz(p.balance)),officeCur(p.office_id))}</b>
             <div class="sub">${owedWords(nz(p.balance))}</div></div>
         </div>`)
         : html`<div class="empty">No partners set up yet. Add them under Salaries and partners.</div>`}
@@ -12318,10 +12342,10 @@ function People(){
                onInput=${e=>upP(i,'ownership_pct',e.target.value)}/>
         <input type="number" step="0.01" value=${p.share_capital??''}
                onInput=${e=>upP(i,'share_capital',e.target.value)}/>
-        <span class="muted" style=${{fontSize:'13px'}}>${AED0(l.contributed)}</span>
+        <span class="muted" style=${{fontSize:'13px'}}>${AED0(l.contributed,officeCur(l.office_id))}</span>
         <span style=${{fontSize:'12.5px',color:nz(l.balance)>0.005?'var(--good)':
               nz(l.balance)<-0.005?'var(--crit)':''}}>
-          ${l.balance==null?'—':AED0(Math.abs(nz(l.balance)))+', '+owedWords(nz(l.balance))}</span>
+          ${l.balance==null?'—':AED0(Math.abs(nz(l.balance)),officeCur(l.office_id))+', '+owedWords(nz(l.balance))}</span>
         <button class="xbtn" onClick=${()=>delPartner(p)}>×</button>
       </div>`;})}
       <div style=${{padding:'10px 14px',display:'flex',gap:'8px'}}>
@@ -12363,14 +12387,14 @@ function People(){
     ${[['Salaries',salaries],['Drawings',drawings]].map(([title,list])=>html`
       <div class="panel" key=${title}>
         <div class="panel-head"><h2>${title}</h2>
-          <span class="sp muted">${AED0(list.reduce((s,x)=>s+nz(x.amount),0))}</span></div>
+          <span class="sp muted">${AED0(list.reduce((s,x)=>s+officeToActive(x.amount,x.office_id),0))}</span></div>
         ${list.length ? html`<div class="tw"><table>
           <thead><tr><th>${_t("Period")}</th><th>${_t("Who")}</th><th class="n">${_t("Amount")}</th><th>${_t("Paid on")}</th><th></th></tr></thead>
           <tbody>${list.map(r=>html`<tr key=${r.id}>
             <td class="muted">${r.period||'—'}</td>
             <td><b>${r.person}</b>${r.partners?.name&&r.partners.name!==r.person
                 ?html`<span class="muted"> (${r.partners.name})</span>`:''}</td>
-            <td class="n">${AED(r.amount)}</td>
+            <td class="n">${AED(r.amount,officeCur(r.office_id))}</td>
             <td class="muted">${r.paid_on?fmtDate(r.paid_on):'not yet'}</td>
             <td><button class="xbtn" onClick=${()=>delPay(r)}>×</button></td>
           </tr>`)}</tbody></table></div>`
@@ -12410,14 +12434,14 @@ function Banks(){
   };
   const del=async(r)=>{ if(!confirm('Remove '+r.name+'?')) return;
     await sb.from('bank_accounts').delete().eq('id',r.id); load(); };
-  const total=pos.reduce((s,p)=>s+nz(p.balance),0);
+  const total=pos.reduce((s,p)=>s+toActive(p.balance,p.currency),0);
 
   return html`
     ${err && html`<div class="err">${err}</div>`}
     ${msg && html`<div class="ok">${msg}</div>`}
     <div class="cards">
       <div class="card"><div class="k">In the bank</div><div class="v">${AED0(total)}</div>
-        <div class="s">Opening balance, plus money received, less money spent</div></div>
+        <div class="s">Opening balance, plus money received, less money spent${bankNote(pos)}</div></div>
     </div>
     <div class="panel">
       <div class="panel-head"><h2>${_t("Accounts")}</h2></div>
@@ -12484,9 +12508,9 @@ function Invoices({settings}){
      settings=${settings} back=${()=>{setOpenId(null);load();}}/>`;
 
   const live=rows.filter(r=>!['draft','cancelled'].includes(r.status));
-  const owed=live.reduce((s,r)=>s+nz(tot[r.id]?.outstanding),0);
+  const owed=live.reduce((s,r)=>s+officeToActive(tot[r.id]?.outstanding,r.office_id),0);
   const overdue=live.filter(r=>nz(tot[r.id]?.outstanding)>0.005 && r.due_date && r.due_date<today());
-  const received=rows.reduce((s,r)=>s+nz(tot[r.id]?.received),0);
+  const received=rows.reduce((s,r)=>s+officeToActive(tot[r.id]?.received,r.office_id),0);
 
   return html`
     <div style=${{display:'flex',marginBottom:'14px'}}>
@@ -12496,10 +12520,10 @@ function Invoices({settings}){
     <div class="cards">
       <div class=${'card '+(owed>0?'':'okc')}><div class="k">Owed to us</div>
         <div class="v">${AED0(owed)}</div>
-        <div class="s">${(x=>x+' '+plural(x,'invoice')+' open')(live.filter(r=>nz(tot[r.id]?.outstanding)>0.005).length)}</div></div>
+        <div class="s">${(x=>x+' '+plural(x,'invoice')+' open')(live.filter(r=>nz(tot[r.id]?.outstanding)>0.005).length)}${bothNote()}</div></div>
       <div class=${'card '+(overdue.length?'alert':'okc')}><div class="k">Past the due date</div>
         <div class="v">${overdue.length}</div>
-        <div class="s">${AED0(overdue.reduce((s,r)=>s+nz(tot[r.id]?.outstanding),0))} late</div></div>
+        <div class="s">${AED0(overdue.reduce((s,r)=>s+officeToActive(tot[r.id]?.outstanding,r.office_id),0))} late</div></div>
       <div class="card"><div class="k">Received</div><div class="v">${AED0(received)}</div>
         <div class="s">Across ${rows.length} ${rows.length===1?'invoice':'invoices'}</div></div>
     </div>
@@ -12507,7 +12531,7 @@ function Invoices({settings}){
       ${rows.length ? html`<div class="tw"><table>
         <thead><tr><th>${_t("Invoice")}</th><th>${_t("Client")}</th><th>${_t("For")}</th><th>${_t("Date")}</th><th>${_t("Due")}</th>
           <th>${_t("Status")}</th><th class="n">${_t("Total")}</th><th class="n">${_t("Outstanding")}</th></tr></thead>
-        <tbody>${rows.map(r=>{const t=tot[r.id]||{};
+        <tbody>${rows.map(r=>{const t=tot[r.id]||{}; const c=officeCur(r.office_id);
           const late=nz(t.outstanding)>0.005 && r.due_date && r.due_date<today();
           return html`<tr key=${r.id} class="click" onClick=${()=>setOpenId(r.id)}>
             <td><b>${r.reference}</b></td>
@@ -12516,8 +12540,8 @@ function Invoices({settings}){
             <td class="muted">${fmtDate(r.invoice_date)}</td>
             <td class=${late?'overdue':'muted'}>${r.due_date?fmtDate(r.due_date):'—'}</td>
             <td><span class=${'istat '+r.status}>${iLabel(r.status)}</span></td>
-            <td class="n">${AED0(t.total)}</td>
-            <td class="n" style=${{color:nz(t.outstanding)>0.005?'var(--crit)':''}}>${AED0(t.outstanding)}</td>
+            <td class="n">${AED0(t.total,c)}</td>
+            <td class="n" style=${{color:nz(t.outstanding)>0.005?'var(--crit)':''}}>${AED0(t.outstanding,c)}</td>
           </tr>`;})}</tbody></table></div>`
         : html`<div class="empty">No invoices yet. Raise one from a project payment milestone.</div>`}
     </div>
@@ -12634,6 +12658,7 @@ function InvoicePage({id,clients,projects,settings,back}){
   const total=subtotal+vat;
   const received=pays.reduce((s,p)=>s+nz(p.amount),0);
   const outstanding=total-received;
+  const ivCur=officeCur(iv.office_id);   // the invoice's money, whichever office is on screen
   const client=iv.clients||null;
   const late=outstanding>0.005 && iv.due_date && iv.due_date<today()
              && !['draft','cancelled'].includes(iv.status);
@@ -12702,12 +12727,12 @@ function InvoicePage({id,clients,projects,settings,back}){
     ${!cfg('trn') && html`<div class="err">${'This is a tax invoice but your TRN is still blank in Settings. Add it before you send this to a client.'}</div>`}
 
     <div class="cards">
-      <div class="card"><div class="k">Invoice total</div><div class="v">${AED0(total)}</div>
-        <div class="s">${AED0(subtotal)} plus ${iv.vat_applies?AED0(vat)+' VAT':'no VAT'}</div></div>
-      <div class="card"><div class="k">Received</div><div class="v">${AED0(received)}</div>
+      <div class="card"><div class="k">Invoice total</div><div class="v">${AED0(total,ivCur)}</div>
+        <div class="s">${AED0(subtotal,ivCur)} plus ${iv.vat_applies?AED0(vat,ivCur)+' VAT':'no VAT'}</div></div>
+      <div class="card"><div class="k">Received</div><div class="v">${AED0(received,ivCur)}</div>
         <div class="s">${pays.length} ${pays.length===1?'payment':'payments'}</div></div>
       <div class=${'card '+(outstanding>0.005?(late?'alert':''):'okc')}>
-        <div class="k">Outstanding</div><div class="v">${AED0(outstanding)}</div>
+        <div class="k">Outstanding</div><div class="v">${AED0(outstanding,ivCur)}</div>
         <div class="s">${outstanding<=0.005?'Settled in full'
           :iv.due_date?(late?'Was due '+fmtDate(iv.due_date):'Due '+fmtDate(iv.due_date)):'No due date set'}</div></div>
     </div>
@@ -12757,17 +12782,17 @@ function InvoicePage({id,clients,projects,settings,back}){
       <div style=${{padding:'10px 14px'}}><button class="btn sec sm" onClick=${addLine}>${_t("Add line")}</button></div>
       <div class="panel-body" style=${{borderTop:'1px solid var(--rule)'}}>
         <div class="tot">
-          <span class="lbl">${_t("Subtotal")}</span><span class="val">${AED(subtotal)}</span>
+          <span class="lbl">${_t("Subtotal")}</span><span class="val">${AED(subtotal,ivCur)}</span>
           <span class="lbl">VAT ${iv.vat_applies?(nz(iv.vat_rate)*100).toFixed(0)+'%':'not applied'}</span>
-          <span class="val">${AED(vat)}</span>
-          <span class="lbl"><b>Total</b></span><span class="val big pos">${AED(total)}</span>
+          <span class="val">${AED(vat,ivCur)}</span>
+          <span class="lbl"><b>Total</b></span><span class="val big pos">${AED(total,ivCur)}</span>
         </div>
       </div>
     </div>
 
     <div class="panel">
       <div class="panel-head"><h2>${_t("Payments received")}</h2>
-        <span class="sp muted">${AED0(received)} of ${AED0(total)}</span></div>
+        <span class="sp muted">${AED0(received,ivCur)} of ${AED0(total,ivCur)}</span></div>
       <div class="phead"><span>Reference</span><span>Paid on</span><span>Amount</span>
         <span>Into</span><span>Method</span><span></span></div>
       ${pays.map((p,i)=>html`<div class="prow" key=${p.id}>
@@ -13751,6 +13776,9 @@ function App(){
   // Set before anything below renders, so every query a screen makes on this pass is
   // already scoped. Null means the BOTH view, where nothing is filtered on purpose.
   OFFICE_ID = office ? office.id : null;
+  // and every screen can say which office's money a record is in, and convert it
+  OFFICE_BY_ID = Object.fromEntries(offices.map(o=>[o.id,o]));
+  EUR_AED = rate;
   // and the interface is in the reader's own language, which is a different question from
   // which office's money is on the screen
   UI_LANG = (me && me.language) || 'en';
