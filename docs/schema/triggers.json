@@ -1,0 +1,163 @@
+[
+ {
+  "schema": "auth",
+  "table": "users",
+  "name": "on_auth_user_created",
+  "definition": "CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "approval_requirements",
+  "name": "log_approval_requirements",
+  "definition": "CREATE TRIGGER log_approval_requirements AFTER INSERT OR DELETE OR UPDATE ON approval_requirements FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "approvals",
+  "name": "approvals_sync",
+  "definition": "CREATE TRIGGER approvals_sync AFTER INSERT OR UPDATE OF status, reference, expires_on, product_id, warehouse_id ON approvals FOR EACH ROW EXECUTE FUNCTION sync_approval_to_subject()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "expenses",
+  "name": "log_expenses",
+  "definition": "CREATE TRIGGER log_expenses AFTER INSERT OR DELETE OR UPDATE ON expenses FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "field_visits",
+  "name": "log_field_visits",
+  "definition": "CREATE TRIGGER log_field_visits AFTER INSERT OR DELETE OR UPDATE ON field_visits FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "inquiries",
+  "name": "promote_prospect_on_inquiry",
+  "definition": "CREATE TRIGGER promote_prospect_on_inquiry AFTER INSERT ON inquiries FOR EACH ROW EXECUTE FUNCTION promote_prospect()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "name": "log_invoices",
+  "definition": "CREATE TRIGGER log_invoices AFTER INSERT OR DELETE OR UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "payroll",
+  "name": "log_payroll",
+  "definition": "CREATE TRIGGER log_payroll AFTER INSERT OR DELETE OR UPDATE ON payroll FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "profiles",
+  "name": "profiles_role_is_the_owners",
+  "definition": "CREATE TRIGGER profiles_role_is_the_owners BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION guard_profile_role()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "project_materials",
+  "name": "project_materials_office_follows_parent",
+  "definition": "CREATE TRIGGER project_materials_office_follows_parent BEFORE INSERT OR UPDATE ON project_materials FOR EACH ROW EXECUTE FUNCTION office_must_match_parent()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "projects",
+  "name": "log_projects",
+  "definition": "CREATE TRIGGER log_projects AFTER INSERT OR DELETE OR UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "name": "po_no_delete_once_received",
+  "definition": "CREATE TRIGGER po_no_delete_once_received BEFORE DELETE ON purchase_orders FOR EACH ROW EXECUTE FUNCTION block_delete_of_received_po()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "quotation_lines",
+  "name": "log_quotation_lines",
+  "definition": "CREATE TRIGGER log_quotation_lines AFTER INSERT OR DELETE OR UPDATE ON quotation_lines FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "name": "log_quotations",
+  "definition": "CREATE TRIGGER log_quotations AFTER INSERT OR DELETE OR UPDATE ON quotations FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "name": "promote_prospect_on_quote",
+  "definition": "CREATE TRIGGER promote_prospect_on_quote AFTER INSERT ON quotations FOR EACH ROW WHEN (new.client_id IS NOT NULL) EXECUTE FUNCTION promote_prospect()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "stock",
+  "name": "stock_office_follows_parent",
+  "definition": "CREATE TRIGGER stock_office_follows_parent BEFORE INSERT OR UPDATE ON stock FOR EACH ROW EXECUTE FUNCTION office_must_match_parent()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "name": "log_stock_movements",
+  "definition": "CREATE TRIGGER log_stock_movements AFTER INSERT OR DELETE OR UPDATE ON stock_movements FOR EACH ROW EXECUTE FUNCTION log_activity()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "name": "stock_movement_applied",
+  "definition": "CREATE TRIGGER stock_movement_applied AFTER INSERT ON stock_movements FOR EACH ROW EXECUTE FUNCTION apply_stock_movement()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "name": "stock_movements_office_follows_parent",
+  "definition": "CREATE TRIGGER stock_movements_office_follows_parent BEFORE INSERT OR UPDATE ON stock_movements FOR EACH ROW EXECUTE FUNCTION office_must_match_parent()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "storage",
+  "table": "buckets",
+  "name": "enforce_bucket_name_length_trigger",
+  "definition": "CREATE TRIGGER enforce_bucket_name_length_trigger BEFORE INSERT OR UPDATE OF name ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.enforce_bucket_name_length()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "storage",
+  "table": "buckets",
+  "name": "protect_buckets_delete",
+  "definition": "CREATE TRIGGER protect_buckets_delete BEFORE DELETE ON storage.buckets FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "storage",
+  "table": "objects",
+  "name": "protect_objects_delete",
+  "definition": "CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete()",
+  "tgenabled": "O"
+ },
+ {
+  "schema": "storage",
+  "table": "objects",
+  "name": "update_objects_updated_at",
+  "definition": "CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column()",
+  "tgenabled": "O"
+ }
+]

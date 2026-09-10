@@ -1,0 +1,205 @@
+[
+ {
+  "key": "bank_details",
+  "value": "",
+  "label": "Bank details block, one item per line",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "company_address",
+  "value": "Dubai Maritime City - MBC-1, Dubai, UAE",
+  "label": "Address on the letterhead",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "company_email",
+  "value": "info@build-tech.be",
+  "label": "Contact email on the quotation",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "company_legal_name",
+  "value": "Build-Tech Pro",
+  "label": "Company name on the quotation",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "company_name",
+  "value": "Build-Tech Pro",
+  "label": "Name on the letterhead",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ },
+ {
+  "key": "default_margin",
+  "value": "0.45",
+  "label": "Gross margin taken on material when pricing a new job",
+  "updated_at": "2026-09-02 11:32:14.154959+00",
+  "updated_by": null
+ },
+ {
+  "key": "eur_aed_rate",
+  "value": "4.27",
+  "label": "EUR to AED conversion rate",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ },
+ {
+  "key": "freight_per_m2_aed",
+  "value": "9.80",
+  "label": "Freight allocated to a square metre of finished work",
+  "updated_at": "2026-09-02 18:20:58.537668+00",
+  "updated_by": null
+ },
+ {
+  "key": "install_rate_aed",
+  "value": "55",
+  "label": "Application cost per m2: labour, plant, access, consumables",
+  "updated_at": "2026-09-02 11:32:14.154959+00",
+  "updated_by": null
+ },
+ {
+  "key": "invoice_next_number",
+  "value": "1",
+  "label": "Next invoice number to issue",
+  "updated_at": "2026-09-02 05:30:48.027244+00",
+  "updated_by": null
+ },
+ {
+  "key": "invoice_number_digits",
+  "value": "4",
+  "label": "Zero-padded width, so 1 prints as 0001",
+  "updated_at": "2026-09-02 05:30:48.027244+00",
+  "updated_by": null
+ },
+ {
+  "key": "invoice_payment_terms",
+  "value": "30 days from the invoice date",
+  "label": "Default payment terms printed on the invoice",
+  "updated_at": "2026-09-02 05:30:48.027244+00",
+  "updated_by": null
+ },
+ {
+  "key": "invoice_prefix",
+  "value": "INV-",
+  "label": "Text before the invoice number",
+  "updated_at": "2026-09-02 05:30:48.027244+00",
+  "updated_by": null
+ },
+ {
+  "key": "invoice_suffix",
+  "value": "",
+  "label": "Text after the invoice number",
+  "updated_at": "2026-09-02 05:30:48.027244+00",
+  "updated_by": null
+ },
+ {
+  "key": "pack_tare_pct",
+  "value": "0.11",
+  "label": "Gross weight over net, from the January 2026 consignment",
+  "updated_at": "2026-09-02 13:38:39.853714+00",
+  "updated_by": null
+ },
+ {
+  "key": "pails_per_pallet",
+  "value": "24",
+  "label": "Pails of 25 kg to a euro pallet",
+  "updated_at": "2026-09-02 13:38:39.853714+00",
+  "updated_by": null
+ },
+ {
+  "key": "pallet_m3",
+  "value": "1.104",
+  "label": "Cubic metres a loaded euro pallet occupies",
+  "updated_at": "2026-09-02 13:38:39.853714+00",
+  "updated_by": null
+ },
+ {
+  "key": "quote_next_number",
+  "value": "729",
+  "label": "Next quotation number to issue",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ },
+ {
+  "key": "quote_number_digits",
+  "value": "4",
+  "label": "Zero-padded width, so 727 prints as 0727",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ },
+ {
+  "key": "quote_prefix",
+  "value": "",
+  "label": "Text before the quotation number",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ },
+ {
+  "key": "quote_remarks",
+  "value": "Quantities are measured after execution. An adjustment is possible.\nIf you have any questions about this quotation, please contact us by e-mail.\nUnit of measurement: m2 - net floor surface area.",
+  "label": "Default remarks printed under the quotation",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "quote_suffix",
+  "value": " BT",
+  "label": "Text after the quotation number",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ },
+ {
+  "key": "quote_validity_days",
+  "value": "30",
+  "label": "Days before a sent quotation expires",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ },
+ {
+  "key": "roll_kg",
+  "value": "9",
+  "label": "Weight of a 100 m2 roll of Geomax including its core",
+  "updated_at": "2026-09-02 13:38:39.853714+00",
+  "updated_by": null
+ },
+ {
+  "key": "supply_discount",
+  "value": "0.70",
+  "label": "Discount off catalogue RRP that Build-Tech buys at",
+  "updated_at": "2026-09-02 11:32:14.154959+00",
+  "updated_by": null
+ },
+ {
+  "key": "terms_conditions",
+  "value": "",
+  "label": "Standard terms and conditions",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "trade_licence",
+  "value": "1411354",
+  "label": "Trade licence number",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "trn",
+  "value": "",
+  "label": "TRN (VAT registration number)",
+  "updated_at": "2026-09-01 15:49:22.067066+00",
+  "updated_by": null
+ },
+ {
+  "key": "vat_rate",
+  "value": "0.05",
+  "label": "UAE VAT rate",
+  "updated_at": "2026-09-01 14:34:11.404343+00",
+  "updated_by": null
+ }
+]

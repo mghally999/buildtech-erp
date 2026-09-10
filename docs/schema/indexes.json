@@ -1,0 +1,878 @@
+[
+ {
+  "schemaname": "public",
+  "tablename": "activity_log",
+  "indexname": "activity_log_pkey",
+  "indexdef": "CREATE UNIQUE INDEX activity_log_pkey ON public.activity_log USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "activity_log",
+  "indexname": "activity_log_table_idx",
+  "indexdef": "CREATE INDEX activity_log_table_idx ON public.activity_log USING btree (table_name, happened_at DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "activity_log",
+  "indexname": "activity_log_time_idx",
+  "indexdef": "CREATE INDEX activity_log_time_idx ON public.activity_log USING btree (happened_at DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "applied_migrations",
+  "indexname": "applied_migrations_pkey",
+  "indexdef": "CREATE UNIQUE INDEX applied_migrations_pkey ON public.applied_migrations USING btree (name)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_documents",
+  "indexname": "approval_documents_approval_id_idx",
+  "indexdef": "CREATE INDEX approval_documents_approval_id_idx ON public.approval_documents USING btree (approval_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_documents",
+  "indexname": "approval_documents_pkey",
+  "indexdef": "CREATE UNIQUE INDEX approval_documents_pkey ON public.approval_documents USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_requirements",
+  "indexname": "approval_requirements_appr_idx",
+  "indexdef": "CREATE INDEX approval_requirements_appr_idx ON public.approval_requirements USING btree (approval_id, \"position\")"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_requirements",
+  "indexname": "approval_requirements_approval_id_position_key",
+  "indexdef": "CREATE UNIQUE INDEX approval_requirements_approval_id_position_key ON public.approval_requirements USING btree (approval_id, \"position\")"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_requirements",
+  "indexname": "approval_requirements_expiry_idx",
+  "indexdef": "CREATE INDEX approval_requirements_expiry_idx ON public.approval_requirements USING btree (expires_on) WHERE (expires_on IS NOT NULL)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_requirements",
+  "indexname": "approval_requirements_pkey",
+  "indexdef": "CREATE UNIQUE INDEX approval_requirements_pkey ON public.approval_requirements USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "indexname": "approvals_expires_on_idx",
+  "indexdef": "CREATE INDEX approvals_expires_on_idx ON public.approvals USING btree (expires_on)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "indexname": "approvals_kind_idx",
+  "indexdef": "CREATE INDEX approvals_kind_idx ON public.approvals USING btree (kind)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "indexname": "approvals_office_idx",
+  "indexdef": "CREATE INDEX approvals_office_idx ON public.approvals USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "indexname": "approvals_pkey",
+  "indexdef": "CREATE UNIQUE INDEX approvals_pkey ON public.approvals USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "indexname": "approvals_product_id_idx",
+  "indexdef": "CREATE INDEX approvals_product_id_idx ON public.approvals USING btree (product_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "indexname": "approvals_status_idx",
+  "indexdef": "CREATE INDEX approvals_status_idx ON public.approvals USING btree (status)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "indexname": "approvals_warehouse_id_idx",
+  "indexdef": "CREATE INDEX approvals_warehouse_id_idx ON public.approvals USING btree (warehouse_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "bank_accounts",
+  "indexname": "bank_accounts_office_idx",
+  "indexdef": "CREATE INDEX bank_accounts_office_idx ON public.bank_accounts USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "bank_accounts",
+  "indexname": "bank_accounts_pkey",
+  "indexdef": "CREATE UNIQUE INDEX bank_accounts_pkey ON public.bank_accounts USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "clients",
+  "indexname": "clients_kind_idx",
+  "indexdef": "CREATE INDEX clients_kind_idx ON public.clients USING btree (kind)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "clients",
+  "indexname": "clients_lower_idx",
+  "indexdef": "CREATE INDEX clients_lower_idx ON public.clients USING btree (lower(name))"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "clients",
+  "indexname": "clients_office_idx",
+  "indexdef": "CREATE INDEX clients_office_idx ON public.clients USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "clients",
+  "indexname": "clients_pkey",
+  "indexdef": "CREATE UNIQUE INDEX clients_pkey ON public.clients USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitment_documents",
+  "indexname": "commitment_documents_commitment_id_idx",
+  "indexdef": "CREATE INDEX commitment_documents_commitment_id_idx ON public.commitment_documents USING btree (commitment_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitment_documents",
+  "indexname": "commitment_documents_pkey",
+  "indexdef": "CREATE UNIQUE INDEX commitment_documents_pkey ON public.commitment_documents USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitment_lines",
+  "indexname": "commitment_lines_commitment_id_idx",
+  "indexdef": "CREATE INDEX commitment_lines_commitment_id_idx ON public.commitment_lines USING btree (commitment_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitment_lines",
+  "indexname": "commitment_lines_pkey",
+  "indexdef": "CREATE UNIQUE INDEX commitment_lines_pkey ON public.commitment_lines USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitments",
+  "indexname": "commitments_category_idx",
+  "indexdef": "CREATE INDEX commitments_category_idx ON public.commitments USING btree (category)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitments",
+  "indexname": "commitments_office_idx",
+  "indexdef": "CREATE INDEX commitments_office_idx ON public.commitments USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitments",
+  "indexname": "commitments_pkey",
+  "indexdef": "CREATE UNIQUE INDEX commitments_pkey ON public.commitments USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitments",
+  "indexname": "commitments_reference_uniq",
+  "indexdef": "CREATE UNIQUE INDEX commitments_reference_uniq ON public.commitments USING btree (supplier, reference) WHERE (reference IS NOT NULL)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitments",
+  "indexname": "commitments_status_idx",
+  "indexdef": "CREATE INDEX commitments_status_idx ON public.commitments USING btree (status)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "correspondence",
+  "indexname": "correspondence_client_id_occurred_at_idx",
+  "indexdef": "CREATE INDEX correspondence_client_id_occurred_at_idx ON public.correspondence USING btree (client_id, occurred_at DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "correspondence",
+  "indexname": "correspondence_followup_idx",
+  "indexdef": "CREATE INDEX correspondence_followup_idx ON public.correspondence USING btree (follow_up_on) WHERE (follow_up_on IS NOT NULL)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "correspondence",
+  "indexname": "correspondence_office_idx",
+  "indexdef": "CREATE INDEX correspondence_office_idx ON public.correspondence USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "correspondence",
+  "indexname": "correspondence_pkey",
+  "indexdef": "CREATE UNIQUE INDEX correspondence_pkey ON public.correspondence USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "expenses",
+  "indexname": "expenses_category_idx",
+  "indexdef": "CREATE INDEX expenses_category_idx ON public.expenses USING btree (category)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "expenses",
+  "indexname": "expenses_expense_date_idx",
+  "indexdef": "CREATE INDEX expenses_expense_date_idx ON public.expenses USING btree (expense_date)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "expenses",
+  "indexname": "expenses_office_idx",
+  "indexdef": "CREATE INDEX expenses_office_idx ON public.expenses USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "expenses",
+  "indexname": "expenses_paid_by_partner_id_idx",
+  "indexdef": "CREATE INDEX expenses_paid_by_partner_id_idx ON public.expenses USING btree (paid_by_partner_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "expenses",
+  "indexname": "expenses_pkey",
+  "indexdef": "CREATE UNIQUE INDEX expenses_pkey ON public.expenses USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "expenses",
+  "indexname": "expenses_project_id_idx",
+  "indexdef": "CREATE INDEX expenses_project_id_idx ON public.expenses USING btree (project_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "field_visits",
+  "indexname": "field_visits_client_idx",
+  "indexdef": "CREATE INDEX field_visits_client_idx ON public.field_visits USING btree (client_id, visit_date DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "field_visits",
+  "indexname": "field_visits_date_idx",
+  "indexdef": "CREATE INDEX field_visits_date_idx ON public.field_visits USING btree (visit_date DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "field_visits",
+  "indexname": "field_visits_due_idx",
+  "indexdef": "CREATE INDEX field_visits_due_idx ON public.field_visits USING btree (next_action_by) WHERE (next_action_by IS NOT NULL)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "field_visits",
+  "indexname": "field_visits_office_idx",
+  "indexdef": "CREATE INDEX field_visits_office_idx ON public.field_visits USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "field_visits",
+  "indexname": "field_visits_pkey",
+  "indexdef": "CREATE UNIQUE INDEX field_visits_pkey ON public.field_visits USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "inquiries",
+  "indexname": "inquiries_client_id_idx",
+  "indexdef": "CREATE INDEX inquiries_client_id_idx ON public.inquiries USING btree (client_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "inquiries",
+  "indexname": "inquiries_office_idx",
+  "indexdef": "CREATE INDEX inquiries_office_idx ON public.inquiries USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "inquiries",
+  "indexname": "inquiries_pkey",
+  "indexdef": "CREATE UNIQUE INDEX inquiries_pkey ON public.inquiries USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "inquiries",
+  "indexname": "inquiries_stage_idx",
+  "indexdef": "CREATE INDEX inquiries_stage_idx ON public.inquiries USING btree (stage)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoice_lines",
+  "indexname": "invoice_lines_invoice_id_idx",
+  "indexdef": "CREATE INDEX invoice_lines_invoice_id_idx ON public.invoice_lines USING btree (invoice_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoice_lines",
+  "indexname": "invoice_lines_pkey",
+  "indexdef": "CREATE UNIQUE INDEX invoice_lines_pkey ON public.invoice_lines USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoice_payments",
+  "indexname": "invoice_payments_invoice_id_idx",
+  "indexdef": "CREATE INDEX invoice_payments_invoice_id_idx ON public.invoice_payments USING btree (invoice_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoice_payments",
+  "indexname": "invoice_payments_pkey",
+  "indexdef": "CREATE UNIQUE INDEX invoice_payments_pkey ON public.invoice_payments USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoices",
+  "indexname": "invoices_client_id_idx",
+  "indexdef": "CREATE INDEX invoices_client_id_idx ON public.invoices USING btree (client_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoices",
+  "indexname": "invoices_office_idx",
+  "indexdef": "CREATE INDEX invoices_office_idx ON public.invoices USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoices",
+  "indexname": "invoices_pkey",
+  "indexdef": "CREATE UNIQUE INDEX invoices_pkey ON public.invoices USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoices",
+  "indexname": "invoices_project_id_idx",
+  "indexdef": "CREATE INDEX invoices_project_id_idx ON public.invoices USING btree (project_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoices",
+  "indexname": "invoices_reference_key",
+  "indexdef": "CREATE UNIQUE INDEX invoices_reference_key ON public.invoices USING btree (reference)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoices",
+  "indexname": "invoices_status_idx",
+  "indexdef": "CREATE INDEX invoices_status_idx ON public.invoices USING btree (status)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "offices",
+  "indexname": "offices_code_key",
+  "indexdef": "CREATE UNIQUE INDEX offices_code_key ON public.offices USING btree (code)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "offices",
+  "indexname": "offices_pkey",
+  "indexdef": "CREATE UNIQUE INDEX offices_pkey ON public.offices USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "partners",
+  "indexname": "partners_office_idx",
+  "indexdef": "CREATE INDEX partners_office_idx ON public.partners USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "partners",
+  "indexname": "partners_pkey",
+  "indexdef": "CREATE UNIQUE INDEX partners_pkey ON public.partners USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payment_milestones",
+  "indexname": "payment_milestones_pkey",
+  "indexdef": "CREATE UNIQUE INDEX payment_milestones_pkey ON public.payment_milestones USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payment_milestones",
+  "indexname": "payment_milestones_project_id_idx",
+  "indexdef": "CREATE INDEX payment_milestones_project_id_idx ON public.payment_milestones USING btree (project_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payroll",
+  "indexname": "payroll_office_idx",
+  "indexdef": "CREATE INDEX payroll_office_idx ON public.payroll USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payroll",
+  "indexname": "payroll_partner_id_idx",
+  "indexdef": "CREATE INDEX payroll_partner_id_idx ON public.payroll USING btree (partner_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payroll",
+  "indexname": "payroll_period_idx",
+  "indexdef": "CREATE INDEX payroll_period_idx ON public.payroll USING btree (period)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payroll",
+  "indexname": "payroll_pkey",
+  "indexdef": "CREATE UNIQUE INDEX payroll_pkey ON public.payroll USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "po_documents",
+  "indexname": "po_documents_pkey",
+  "indexdef": "CREATE UNIQUE INDEX po_documents_pkey ON public.po_documents USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "po_documents",
+  "indexname": "po_documents_po_id_idx",
+  "indexdef": "CREATE INDEX po_documents_po_id_idx ON public.po_documents USING btree (po_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_aliases",
+  "indexname": "product_aliases_alias_key",
+  "indexdef": "CREATE UNIQUE INDEX product_aliases_alias_key ON public.product_aliases USING btree (lower(alias))"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_aliases",
+  "indexname": "product_aliases_pkey",
+  "indexdef": "CREATE UNIQUE INDEX product_aliases_pkey ON public.product_aliases USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_documents",
+  "indexname": "product_documents_expiry_idx",
+  "indexdef": "CREATE INDEX product_documents_expiry_idx ON public.product_documents USING btree (expires_on) WHERE (expires_on IS NOT NULL)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_documents",
+  "indexname": "product_documents_pkey",
+  "indexdef": "CREATE UNIQUE INDEX product_documents_pkey ON public.product_documents USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_documents",
+  "indexname": "product_documents_product_idx",
+  "indexdef": "CREATE INDEX product_documents_product_idx ON public.product_documents USING btree (product_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_documents",
+  "indexname": "product_documents_type_idx",
+  "indexdef": "CREATE INDEX product_documents_type_idx ON public.product_documents USING btree (doc_type)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_packs",
+  "indexname": "product_packs_pkey",
+  "indexdef": "CREATE UNIQUE INDEX product_packs_pkey ON public.product_packs USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_packs",
+  "indexname": "product_packs_product_id_idx",
+  "indexdef": "CREATE INDEX product_packs_product_id_idx ON public.product_packs USING btree (product_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_transport",
+  "indexname": "product_transport_pkey",
+  "indexdef": "CREATE UNIQUE INDEX product_transport_pkey ON public.product_transport USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_transport",
+  "indexname": "product_transport_product_idx",
+  "indexdef": "CREATE INDEX product_transport_product_idx ON public.product_transport USING btree (product_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_transport",
+  "indexname": "product_transport_unique",
+  "indexdef": "CREATE UNIQUE INDEX product_transport_unique ON public.product_transport USING btree (product_id, COALESCE(component, ''::text))"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_wordings",
+  "indexname": "product_wordings_pkey",
+  "indexdef": "CREATE UNIQUE INDEX product_wordings_pkey ON public.product_wordings USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_wordings",
+  "indexname": "product_wordings_product_id_wording_key",
+  "indexdef": "CREATE UNIQUE INDEX product_wordings_product_id_wording_key ON public.product_wordings USING btree (product_id, wording)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_wordings",
+  "indexname": "product_wordings_recent_idx",
+  "indexdef": "CREATE INDEX product_wordings_recent_idx ON public.product_wordings USING btree (product_id, last_used_at DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "products",
+  "indexname": "products_category_subcategory_idx",
+  "indexdef": "CREATE INDEX products_category_subcategory_idx ON public.products USING btree (category, subcategory)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "products",
+  "indexname": "products_lower_idx",
+  "indexdef": "CREATE INDEX products_lower_idx ON public.products USING btree (lower(name))"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "products",
+  "indexname": "products_pkey",
+  "indexdef": "CREATE UNIQUE INDEX products_pkey ON public.products USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "profiles",
+  "indexname": "profiles_email_key",
+  "indexdef": "CREATE UNIQUE INDEX profiles_email_key ON public.profiles USING btree (email)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "profiles",
+  "indexname": "profiles_pkey",
+  "indexdef": "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "project_materials",
+  "indexname": "project_materials_office_idx",
+  "indexdef": "CREATE INDEX project_materials_office_idx ON public.project_materials USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "project_materials",
+  "indexname": "project_materials_pkey",
+  "indexdef": "CREATE UNIQUE INDEX project_materials_pkey ON public.project_materials USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "project_materials",
+  "indexname": "project_materials_product_id_idx",
+  "indexdef": "CREATE INDEX project_materials_product_id_idx ON public.project_materials USING btree (product_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "project_materials",
+  "indexname": "project_materials_project_id_idx",
+  "indexdef": "CREATE INDEX project_materials_project_id_idx ON public.project_materials USING btree (project_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "projects",
+  "indexname": "projects_client_id_idx",
+  "indexdef": "CREATE INDEX projects_client_id_idx ON public.projects USING btree (client_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "projects",
+  "indexname": "projects_office_idx",
+  "indexdef": "CREATE INDEX projects_office_idx ON public.projects USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "projects",
+  "indexname": "projects_pkey",
+  "indexdef": "CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "projects",
+  "indexname": "projects_status_idx",
+  "indexdef": "CREATE INDEX projects_status_idx ON public.projects USING btree (status)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_order_lines",
+  "indexname": "purchase_order_lines_pkey",
+  "indexdef": "CREATE UNIQUE INDEX purchase_order_lines_pkey ON public.purchase_order_lines USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_order_lines",
+  "indexname": "purchase_order_lines_po_id_idx",
+  "indexdef": "CREATE INDEX purchase_order_lines_po_id_idx ON public.purchase_order_lines USING btree (po_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_order_lines",
+  "indexname": "purchase_order_lines_product_id_idx",
+  "indexdef": "CREATE INDEX purchase_order_lines_product_id_idx ON public.purchase_order_lines USING btree (product_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_orders",
+  "indexname": "purchase_orders_office_idx",
+  "indexdef": "CREATE INDEX purchase_orders_office_idx ON public.purchase_orders USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_orders",
+  "indexname": "purchase_orders_pkey",
+  "indexdef": "CREATE UNIQUE INDEX purchase_orders_pkey ON public.purchase_orders USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_orders",
+  "indexname": "purchase_orders_quotation_id_idx",
+  "indexdef": "CREATE INDEX purchase_orders_quotation_id_idx ON public.purchase_orders USING btree (quotation_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_orders",
+  "indexname": "purchase_orders_reference_key",
+  "indexdef": "CREATE UNIQUE INDEX purchase_orders_reference_key ON public.purchase_orders USING btree (reference)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_orders",
+  "indexname": "purchase_orders_shipment_id_idx",
+  "indexdef": "CREATE INDEX purchase_orders_shipment_id_idx ON public.purchase_orders USING btree (shipment_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_orders",
+  "indexname": "purchase_orders_status_idx",
+  "indexdef": "CREATE INDEX purchase_orders_status_idx ON public.purchase_orders USING btree (status)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotation_lines",
+  "indexname": "quotation_lines_costing_idx",
+  "indexdef": "CREATE INDEX quotation_lines_costing_idx ON public.quotation_lines USING btree (section_id) WHERE is_costing"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotation_lines",
+  "indexname": "quotation_lines_pkey",
+  "indexdef": "CREATE UNIQUE INDEX quotation_lines_pkey ON public.quotation_lines USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotation_lines",
+  "indexname": "quotation_lines_section_id_idx",
+  "indexdef": "CREATE INDEX quotation_lines_section_id_idx ON public.quotation_lines USING btree (section_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotation_sections",
+  "indexname": "quotation_sections_pkey",
+  "indexdef": "CREATE UNIQUE INDEX quotation_sections_pkey ON public.quotation_sections USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotations",
+  "indexname": "quotations_client_id_idx",
+  "indexdef": "CREATE INDEX quotations_client_id_idx ON public.quotations USING btree (client_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotations",
+  "indexname": "quotations_office_idx",
+  "indexdef": "CREATE INDEX quotations_office_idx ON public.quotations USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotations",
+  "indexname": "quotations_pkey",
+  "indexdef": "CREATE UNIQUE INDEX quotations_pkey ON public.quotations USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotations",
+  "indexname": "quotations_reference_revision_key",
+  "indexdef": "CREATE UNIQUE INDEX quotations_reference_revision_key ON public.quotations USING btree (reference, revision)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotations",
+  "indexname": "quotations_status_idx",
+  "indexdef": "CREATE INDEX quotations_status_idx ON public.quotations USING btree (status)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "scope_documents",
+  "indexname": "scope_documents_office_idx",
+  "indexdef": "CREATE INDEX scope_documents_office_idx ON public.scope_documents USING btree (office_id, created_at DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "scope_documents",
+  "indexname": "scope_documents_pkey",
+  "indexdef": "CREATE UNIQUE INDEX scope_documents_pkey ON public.scope_documents USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "scope_documents",
+  "indexname": "scope_documents_quote_idx",
+  "indexdef": "CREATE INDEX scope_documents_quote_idx ON public.scope_documents USING btree (quotation_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "settings",
+  "indexname": "settings_pkey",
+  "indexdef": "CREATE UNIQUE INDEX settings_pkey ON public.settings USING btree (key)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipment_documents",
+  "indexname": "shipment_documents_pkey",
+  "indexdef": "CREATE UNIQUE INDEX shipment_documents_pkey ON public.shipment_documents USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipment_documents",
+  "indexname": "shipment_documents_shipment_id_idx",
+  "indexdef": "CREATE INDEX shipment_documents_shipment_id_idx ON public.shipment_documents USING btree (shipment_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipment_lines",
+  "indexname": "shipment_lines_pkey",
+  "indexdef": "CREATE UNIQUE INDEX shipment_lines_pkey ON public.shipment_lines USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipment_lines",
+  "indexname": "shipment_lines_product_id_idx",
+  "indexdef": "CREATE INDEX shipment_lines_product_id_idx ON public.shipment_lines USING btree (product_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipment_lines",
+  "indexname": "shipment_lines_shipment_id_idx",
+  "indexdef": "CREATE INDEX shipment_lines_shipment_id_idx ON public.shipment_lines USING btree (shipment_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipments",
+  "indexname": "shipments_office_idx",
+  "indexdef": "CREATE INDEX shipments_office_idx ON public.shipments USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipments",
+  "indexname": "shipments_pkey",
+  "indexdef": "CREATE UNIQUE INDEX shipments_pkey ON public.shipments USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipments",
+  "indexname": "shipments_project_id_idx",
+  "indexdef": "CREATE INDEX shipments_project_id_idx ON public.shipments USING btree (project_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipments",
+  "indexname": "shipments_quotation_id_idx",
+  "indexdef": "CREATE INDEX shipments_quotation_id_idx ON public.shipments USING btree (quotation_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipments",
+  "indexname": "shipments_reference_key",
+  "indexdef": "CREATE UNIQUE INDEX shipments_reference_key ON public.shipments USING btree (reference)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipments",
+  "indexname": "shipments_status_idx",
+  "indexdef": "CREATE INDEX shipments_status_idx ON public.shipments USING btree (status)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "spec_equivalents",
+  "indexname": "spec_equivalents_pkey",
+  "indexdef": "CREATE UNIQUE INDEX spec_equivalents_pkey ON public.spec_equivalents USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "spec_equivalents",
+  "indexname": "spec_equivalents_term_idx",
+  "indexdef": "CREATE INDEX spec_equivalents_term_idx ON public.spec_equivalents USING btree (lower(term))"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "spec_equivalents",
+  "indexname": "spec_equivalents_term_product",
+  "indexdef": "CREATE UNIQUE INDEX spec_equivalents_term_product ON public.spec_equivalents USING btree (lower(term), COALESCE(product_id, '00000000-0000-0000-0000-000000000000'::uuid))"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock",
+  "indexname": "stock_office_idx",
+  "indexdef": "CREATE INDEX stock_office_idx ON public.stock USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock",
+  "indexname": "stock_pkey",
+  "indexdef": "CREATE UNIQUE INDEX stock_pkey ON public.stock USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock",
+  "indexname": "stock_product_id_warehouse_id_key",
+  "indexdef": "CREATE UNIQUE INDEX stock_product_id_warehouse_id_key ON public.stock USING btree (product_id, warehouse_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock_movements",
+  "indexname": "stock_movements_office_idx",
+  "indexdef": "CREATE INDEX stock_movements_office_idx ON public.stock_movements USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock_movements",
+  "indexname": "stock_movements_pkey",
+  "indexdef": "CREATE UNIQUE INDEX stock_movements_pkey ON public.stock_movements USING btree (id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock_movements",
+  "indexname": "stock_movements_product_id_moved_on_idx",
+  "indexdef": "CREATE INDEX stock_movements_product_id_moved_on_idx ON public.stock_movements USING btree (product_id, moved_on DESC)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock_movements",
+  "indexname": "stock_movements_project_id_idx",
+  "indexdef": "CREATE INDEX stock_movements_project_id_idx ON public.stock_movements USING btree (project_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "warehouses",
+  "indexname": "warehouses_name_key",
+  "indexdef": "CREATE UNIQUE INDEX warehouses_name_key ON public.warehouses USING btree (name)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "warehouses",
+  "indexname": "warehouses_office_idx",
+  "indexdef": "CREATE INDEX warehouses_office_idx ON public.warehouses USING btree (office_id)"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "warehouses",
+  "indexname": "warehouses_pkey",
+  "indexdef": "CREATE UNIQUE INDEX warehouses_pkey ON public.warehouses USING btree (id)"
+ }
+]

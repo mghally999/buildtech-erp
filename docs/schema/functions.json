@@ -1,0 +1,213 @@
+[
+ {
+  "schema": "public",
+  "name": "apply_stock_movement",
+  "oid": 18205,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": false,
+  "config": null,
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.apply_stock_movement()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nbegin\n  insert into stock (product_id, warehouse_id, qty_on_hand)\n  values (new.product_id, new.warehouse_id,\n          case when new.direction = 'in' then new.quantity else -new.quantity end)\n  on conflict (product_id, warehouse_id) do update\n    set qty_on_hand = stock.qty_on_hand\n        + case when new.direction = 'in' then new.quantity else -new.quantity end,\n        updated_at = now();\n  return new;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "block_delete_of_received_po",
+  "oid": 19252,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": false,
+  "config": null,
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.block_delete_of_received_po()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\ndeclare v_received numeric;\nbegin\n  select coalesce(sum(qty_received),0) into v_received\n    from purchase_order_lines where po_id = old.id;\n  if v_received > 0 then\n    raise exception 'Order % has received % already, so it cannot be deleted. Cancel it instead.',\n      old.reference, v_received;\n  end if;\n  return old;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "guard_profile_role",
+  "oid": 19277,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": true,
+  "config": [
+   "search_path=public"
+  ],
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.guard_profile_role()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if new.role is distinct from old.role and not is_owner() then\n    raise exception 'Only an owner can change what access somebody has.';\n  end if;\n  return new;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "handle_new_user",
+  "oid": 17996,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": true,
+  "config": [
+   "search_path=public"
+  ],
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.handle_new_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  insert into profiles (id, full_name, email, role)\n  values (new.id,\n          coalesce(nullif(trim(new.raw_user_meta_data->>'full_name'), ''),\n                   initcap(replace(split_part(new.email,'@',1),'.',' '))),\n          new.email,\n          'full')\n  on conflict (id) do nothing;\n  return new;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "is_owner",
+  "oid": 19268,
+  "args": "",
+  "returns": "boolean",
+  "security_definer": true,
+  "config": [
+   "search_path=public"
+  ],
+  "language": "sql",
+  "volatility": "s",
+  "definition": "CREATE OR REPLACE FUNCTION public.is_owner()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select exists (select 1 from profiles where id = auth.uid() and role = 'owner');\n$function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "log_activity",
+  "oid": 18981,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": true,
+  "config": [
+   "search_path=public"
+  ],
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.log_activity()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_old jsonb; v_new jsonb; v_id text; v_email text; v_sum text;\n  v_parts text[] := '{}';\n  v_key text; v_actor uuid;\nbegin\n  -- Everything goes through jsonb. Naming columns directly (old.status, old.value) only\n  -- compiles on the tables that have them, so one trigger function shared across eight\n  -- tables fails at runtime on the first table missing a column.\n  if tg_op <> 'INSERT' then v_old := to_jsonb(old); end if;\n  if tg_op <> 'DELETE' then v_new := to_jsonb(new); end if;\n  v_id := coalesce(v_new->>'id', v_old->>'id', '');\n\n  -- auth.uid() exists on Supabase and not in a plain Postgres. Never let the absence of a\n  -- signed-in user, or anything else in here, stop the write it is recording.\n  begin\n    execute 'select auth.uid()' into v_actor;\n    select email into v_email from auth.users where id = v_actor;\n  exception when others then v_actor := null; v_email := null;\n  end;\n\n  if tg_op = 'INSERT' then\n    v_sum := 'created';\n  elsif tg_op = 'DELETE' then\n    v_sum := 'deleted';\n  else\n    -- name the fields worth naming, and only those, so the log reads as English\n    foreach v_key in array array['status','value','sell_rate','cost_rate','quantity',\n                                 'amount','reference','paid_on','qty_ordered','qty_received']\n    loop\n      if v_old ? v_key and (v_old->>v_key) is distinct from (v_new->>v_key) then\n        v_parts := v_parts || (replace(v_key,'_',' ') || ' ' ||\n                   coalesce(nullif(v_old->>v_key,''),'blank') || ' to ' ||\n                   coalesce(nullif(v_new->>v_key,''),'blank'));\n      end if;\n    end loop;\n    v_sum := coalesce(nullif(array_to_string(v_parts, ', '), ''), 'edited');\n  end if;\n\n  begin\n    insert into activity_log (actor, actor_email, table_name, row_id, action, summary)\n    values (v_actor, v_email, tg_table_name, v_id, lower(tg_op), left(v_sum, 400));\n  exception when others then null;   -- the log is never worth losing a real write over\n  end;\n  return null;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "next_invoice_reference",
+  "oid": 18497,
+  "args": "",
+  "returns": "text",
+  "security_definer": false,
+  "config": null,
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.next_invoice_reference()\n RETURNS text\n LANGUAGE plpgsql\nAS $function$\ndeclare n int; prefix text; suffix text; digits int;\nbegin\n  update settings set value = (value::int + 1)::text\n   where key = 'invoice_next_number'\n  returning (value::int - 1) into n;\n  select value into prefix from settings where key = 'invoice_prefix';\n  select value into suffix from settings where key = 'invoice_suffix';\n  select value::int into digits from settings where key = 'invoice_number_digits';\n  return coalesce(prefix,'') || lpad(n::text, coalesce(digits,4), '0') || coalesce(suffix,'');\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "next_po_reference",
+  "oid": 18928,
+  "args": "",
+  "returns": "text",
+  "security_definer": true,
+  "config": [
+   "search_path=public"
+  ],
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.next_po_reference()\n RETURNS text\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare v_n int;\nbegin\n  select coalesce(max(nullif(regexp_replace(reference, '\\D', '', 'g'), '')::int), 0) + 1\n    into v_n from purchase_orders where reference like 'PO-%';\n  return 'PO-' || lpad(v_n::text, 4, '0');\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "next_quotation_reference",
+  "oid": 17949,
+  "args": "",
+  "returns": "text",
+  "security_definer": false,
+  "config": null,
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.next_quotation_reference()\n RETURNS text\n LANGUAGE plpgsql\nAS $function$\ndeclare n int; prefix text; suffix text; digits int;\nbegin\n  update settings set value = (value::int + 1)::text\n   where key = 'quote_next_number'\n  returning (value::int - 1) into n;\n  select value into prefix from settings where key = 'quote_prefix';\n  select value into suffix from settings where key = 'quote_suffix';\n  select value::int into digits from settings where key = 'quote_number_digits';\n  return prefix || lpad(n::text, digits, '0') || suffix;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "next_quotation_reference",
+  "oid": 19461,
+  "args": "p_office uuid",
+  "returns": "text",
+  "security_definer": false,
+  "config": null,
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.next_quotation_reference(p_office uuid DEFAULT NULL::uuid)\n RETURNS text\n LANGUAGE plpgsql\nAS $function$\ndeclare n int; o record;\nbegin\n  if p_office is null then select id into p_office from offices where code = 'DXB'; end if;\n  update offices set quote_next = quote_next + 1\n   where id = p_office\n  returning quote_prefix, quote_suffix, quote_digits, quote_next - 1 as n into o;\n  if not found then raise exception 'There is no office with that id.'; end if;\n  return o.quote_prefix || lpad(o.n::text, o.quote_digits, '0') || o.quote_suffix;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "office_must_match_parent",
+  "oid": 19520,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": false,
+  "config": null,
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.office_must_match_parent()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\ndeclare v_parent uuid;\nbegin\n  if tg_table_name in ('stock','stock_movements') then\n    select office_id into v_parent from warehouses where id = new.warehouse_id;\n  else\n    select office_id into v_parent from projects where id = new.project_id;\n  end if;\n  if v_parent is not null and new.office_id is distinct from v_parent then\n    new.office_id := v_parent;      -- the parent is the truth, so follow it silently\n  end if;\n  return new;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "promote_prospect",
+  "oid": 19030,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": true,
+  "config": [
+   "search_path=public"
+  ],
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.promote_prospect()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  update clients set kind = 'client'\n   where id = new.client_id and kind = 'prospect';\n  return null;\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "receive_po_line",
+  "oid": 18939,
+  "args": "p_line_id uuid, p_qty numeric, p_warehouse_id uuid, p_moved_on date, p_note text",
+  "returns": "void",
+  "security_definer": true,
+  "config": [
+   "search_path=public"
+  ],
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.receive_po_line(p_line_id uuid, p_qty numeric, p_warehouse_id uuid, p_moved_on date DEFAULT CURRENT_DATE, p_note text DEFAULT NULL::text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_line purchase_order_lines%rowtype;\n  v_po   purchase_orders%rowtype;\n  v_left numeric;\nbegin\n  if p_qty is null or p_qty <= 0 then\n    raise exception 'Receive a quantity greater than zero.';\n  end if;\n  select * into v_line from purchase_order_lines where id = p_line_id;\n  if not found then raise exception 'That order line no longer exists.'; end if;\n  select * into v_po from purchase_orders where id = v_line.po_id;\n\n  v_left := v_line.qty_ordered - v_line.qty_received;\n  if p_qty > v_left + 0.001 then\n    raise exception 'Only % % of % are still outstanding on this line. Amend the order first.',\n      round(v_left,3), v_line.unit, v_line.description;\n  end if;\n  if v_line.product_id is null then\n    raise exception 'This line is not linked to a catalogue product, so it cannot go into stock.';\n  end if;\n  if coalesce(p_warehouse_id, v_po.warehouse_id) is null then\n    raise exception 'Say which warehouse it went into.';\n  end if;\n\n  insert into stock_movements (product_id, warehouse_id, direction, quantity,\n                               project_id, reference, note, moved_on)\n  values (v_line.product_id, coalesce(p_warehouse_id, v_po.warehouse_id), 'in', p_qty,\n          v_po.project_id, v_po.reference,\n          coalesce(p_note, 'Received against ' || v_po.reference), p_moved_on);\n\n  update purchase_order_lines set qty_received = qty_received + p_qty where id = p_line_id;\n\n  update purchase_orders set status =\n    case when (select bool_and(qty_received >= qty_ordered - 0.001)\n                 from purchase_order_lines where po_id = v_po.id)\n         then 'received'::po_status else 'part'::po_status end\n   where id = v_po.id and status in ('sent','confirmed','part');\nend $function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "rls_auto_enable",
+  "oid": 17486,
+  "args": "",
+  "returns": "event_trigger",
+  "security_definer": true,
+  "config": [
+   "search_path=pg_catalog"
+  ],
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.rls_auto_enable()\n RETURNS event_trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE\n  cmd record;\nBEGIN\n  FOR cmd IN\n    SELECT *\n    FROM pg_event_trigger_ddl_commands()\n    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')\n      AND object_type IN ('table','partitioned table')\n  LOOP\n     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN\n      BEGIN\n        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);\n        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;\n      EXCEPTION\n        WHEN OTHERS THEN\n          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;\n      END;\n     ELSE\n        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;\n     END IF;\n  END LOOP;\nEND;\n$function$\n",
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "sync_approval_to_subject",
+  "oid": 18651,
+  "args": "",
+  "returns": "trigger",
+  "security_definer": false,
+  "config": null,
+  "language": "plpgsql",
+  "volatility": "v",
+  "definition": "CREATE OR REPLACE FUNCTION public.sync_approval_to_subject()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\ndeclare granted boolean;\nbegin\n  granted := (new.status = 'approved');\n\n  if new.kind = 'product_dcd' and new.product_id is not null then\n    update products\n       set dcd_approved = granted,\n           dcd_ref      = case when granted then coalesce(new.reference, dcd_ref) else dcd_ref end,\n           dcd_expiry   = case when granted then new.expires_on else dcd_expiry end\n     where id = new.product_id;\n\n  elsif new.kind = 'warehouse_storage' and new.warehouse_id is not null then\n    update warehouses\n       set dcd_certified       = granted,\n           dcd_certificate_ref = case when granted then coalesce(new.reference, dcd_certificate_ref)\n                                      else dcd_certificate_ref end,\n           dcd_expiry          = case when granted then new.expires_on else dcd_expiry end\n     where id = new.warehouse_id;\n  end if;\n\n  return new;\nend $function$\n",
+  "comment": null
+ }
+]

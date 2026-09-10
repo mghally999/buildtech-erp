@@ -1,0 +1,26 @@
+[
+ {
+  "id": "a0dd321d-7710-4eb1-a07b-ab0f60a00074",
+  "name": "Adnan warehouse",
+  "location": "Dubai",
+  "dcd_certified": false,
+  "dcd_certificate_ref": null,
+  "dcd_expiry": null,
+  "storage_notes": "Holding the Krypton samples consignment, 120 kg, as a favour. No Dubai Civil Defence hazardous materials storage certificate, so nothing here can be legally moved or sold. Adnan is finding a warehouse that has one.",
+  "notes": "Civil Defense certified for material storage",
+  "is_active": true,
+  "office_id": "67ec3e39-ebac-4b7a-8a50-06b96b8dad40"
+ },
+ {
+  "id": "f1c268e1-d2ff-4c2e-b6d5-c9fcdc121bcb",
+  "name": "Main warehouse",
+  "location": "Dubai",
+  "dcd_certified": false,
+  "dcd_certificate_ref": null,
+  "dcd_expiry": null,
+  "storage_notes": "No Civil Defence storage certificate yet. Stock cannot be moved here.",
+  "notes": "Rename this to whatever you call it",
+  "is_active": true,
+  "office_id": "67ec3e39-ebac-4b7a-8a50-06b96b8dad40"
+ }
+]

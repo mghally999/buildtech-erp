@@ -1,0 +1,792 @@
+[
+ {
+  "schemaname": "public",
+  "tablename": "activity_log",
+  "policyname": "activity_log_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "true",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "applied_migrations",
+  "policyname": "applied_migrations_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "true",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_documents",
+  "policyname": "approval_documents_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approval_requirements",
+  "policyname": "approval_requirements_all",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "approvals",
+  "policyname": "approvals_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "bank_accounts",
+  "policyname": "bank_accounts_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "clients",
+  "policyname": "clients_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitment_documents",
+  "policyname": "commitment_documents_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitment_lines",
+  "policyname": "commitment_lines_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "commitments",
+  "policyname": "commitments_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "correspondence",
+  "policyname": "correspondence_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "expenses",
+  "policyname": "expenses_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "field_visits",
+  "policyname": "field_visits_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "inquiries",
+  "policyname": "inquiries_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoice_lines",
+  "policyname": "invoice_lines_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoice_payments",
+  "policyname": "invoice_payments_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "invoices",
+  "policyname": "invoices_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "offices",
+  "policyname": "offices_del",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "is_owner()",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "offices",
+  "policyname": "offices_edit",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "is_owner()",
+  "with_check": "is_owner()"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "offices",
+  "policyname": "offices_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "true",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "offices",
+  "policyname": "offices_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "is_owner()"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "partners",
+  "policyname": "partners_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payment_milestones",
+  "policyname": "payment_milestones_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "payroll",
+  "policyname": "payroll_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "po_documents",
+  "policyname": "po_documents_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_aliases",
+  "policyname": "product_aliases_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_documents",
+  "policyname": "product_documents_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_packs",
+  "policyname": "product_packs_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_transport",
+  "policyname": "product_transport_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "product_wordings",
+  "policyname": "product_wordings_all",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "products",
+  "policyname": "products_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "profiles",
+  "policyname": "profiles_del",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "is_owner()",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "profiles",
+  "policyname": "profiles_edit",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "((id = auth.uid()) OR is_owner())",
+  "with_check": "((id = auth.uid()) OR is_owner())"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "profiles",
+  "policyname": "profiles_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "true",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "profiles",
+  "policyname": "profiles_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "is_owner()"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "project_materials",
+  "policyname": "project_materials_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "projects",
+  "policyname": "projects_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_order_lines",
+  "policyname": "purchase_order_lines_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "purchase_orders",
+  "policyname": "purchase_orders_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotation_lines",
+  "policyname": "quotation_lines_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotation_sections",
+  "policyname": "quotation_sections_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "quotations",
+  "policyname": "quotations_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "scope_documents",
+  "policyname": "scope_documents_all",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "settings",
+  "policyname": "settings_del",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "is_owner()",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "settings",
+  "policyname": "settings_edit",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "is_owner()",
+  "with_check": "is_owner()"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "settings",
+  "policyname": "settings_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "true",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "settings",
+  "policyname": "settings_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "is_owner()"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipment_documents",
+  "policyname": "shipment_documents_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipment_lines",
+  "policyname": "shipment_lines_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "shipments",
+  "policyname": "shipments_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "spec_equivalents",
+  "policyname": "spec_equivalents_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "true",
+  "with_check": null
+ },
+ {
+  "schemaname": "public",
+  "tablename": "spec_equivalents",
+  "policyname": "spec_equivalents_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "is_owner()",
+  "with_check": "is_owner()"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock",
+  "policyname": "stock_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "stock_movements",
+  "policyname": "stock_movements_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "public",
+  "tablename": "warehouses",
+  "policyname": "warehouses_all_authenticated",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "ALL",
+  "qual": "true",
+  "with_check": "true"
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "approval_docs_delete",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "(bucket_id = 'approval-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "approval_docs_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "(bucket_id = 'approval-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "approval_docs_update",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "(bucket_id = 'approval-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "approval_docs_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "(bucket_id = 'approval-docs'::text)"
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "commitment_docs_delete",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "(bucket_id = 'commitment-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "commitment_docs_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "(bucket_id = 'commitment-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "commitment_docs_update",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "(bucket_id = 'commitment-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "commitment_docs_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "(bucket_id = 'commitment-docs'::text)"
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "po_docs_delete",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "(bucket_id = 'po-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "po_docs_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "(bucket_id = 'po-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "po_docs_update",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "(bucket_id = 'po-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "po_docs_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "(bucket_id = 'po-docs'::text)"
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "product_docs_delete",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "(bucket_id = 'product-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "product_docs_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "(bucket_id = 'product-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "product_docs_update",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "(bucket_id = 'product-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "product_docs_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "(bucket_id = 'product-docs'::text)"
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "scope_docs_delete",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "(bucket_id = 'scope-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "scope_docs_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "(bucket_id = 'scope-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "scope_docs_update",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "(bucket_id = 'scope-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "scope_docs_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "(bucket_id = 'scope-docs'::text)"
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "shipment_docs_delete",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "DELETE",
+  "qual": "(bucket_id = 'shipment-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "shipment_docs_read",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "SELECT",
+  "qual": "(bucket_id = 'shipment-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "shipment_docs_update",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "UPDATE",
+  "qual": "(bucket_id = 'shipment-docs'::text)",
+  "with_check": null
+ },
+ {
+  "schemaname": "storage",
+  "tablename": "objects",
+  "policyname": "shipment_docs_write",
+  "permissive": "PERMISSIVE",
+  "roles": "{authenticated}",
+  "cmd": "INSERT",
+  "qual": null,
+  "with_check": "(bucket_id = 'shipment-docs'::text)"
+ }
+]

@@ -1,0 +1,13 @@
+[
+ {
+  "schemaname": "public",
+  "sequencename": "activity_log_id_seq",
+  "data_type": "bigint",
+  "start_value": 1,
+  "min_value": 1,
+  "max_value": "9223372036854775807",
+  "increment_by": 1,
+  "cycle": false,
+  "last_value": 530
+ }
+]

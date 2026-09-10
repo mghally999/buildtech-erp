@@ -1,0 +1,182 @@
+[
+ {
+  "table": "activity_log",
+  "approx_rows": 530
+ },
+ {
+  "table": "applied_migrations",
+  "approx_rows": 8
+ },
+ {
+  "table": "approval_documents",
+  "approx_rows": 0
+ },
+ {
+  "table": "approval_requirements",
+  "approx_rows": 12
+ },
+ {
+  "table": "approvals",
+  "approx_rows": 6
+ },
+ {
+  "table": "bank_accounts",
+  "approx_rows": 1
+ },
+ {
+  "table": "clients",
+  "approx_rows": 68
+ },
+ {
+  "table": "commitment_documents",
+  "approx_rows": 2
+ },
+ {
+  "table": "commitment_lines",
+  "approx_rows": 10
+ },
+ {
+  "table": "commitments",
+  "approx_rows": 2
+ },
+ {
+  "table": "correspondence",
+  "approx_rows": 3
+ },
+ {
+  "table": "expenses",
+  "approx_rows": 24
+ },
+ {
+  "table": "field_visits",
+  "approx_rows": 67
+ },
+ {
+  "table": "inquiries",
+  "approx_rows": 2
+ },
+ {
+  "table": "invoice_lines",
+  "approx_rows": 0
+ },
+ {
+  "table": "invoice_payments",
+  "approx_rows": 0
+ },
+ {
+  "table": "invoices",
+  "approx_rows": 0
+ },
+ {
+  "table": "offices",
+  "approx_rows": 2
+ },
+ {
+  "table": "partners",
+  "approx_rows": 3
+ },
+ {
+  "table": "payment_milestones",
+  "approx_rows": 0
+ },
+ {
+  "table": "payroll",
+  "approx_rows": 2
+ },
+ {
+  "table": "po_documents",
+  "approx_rows": 0
+ },
+ {
+  "table": "product_aliases",
+  "approx_rows": 16
+ },
+ {
+  "table": "product_documents",
+  "approx_rows": 61
+ },
+ {
+  "table": "product_packs",
+  "approx_rows": 259
+ },
+ {
+  "table": "product_transport",
+  "approx_rows": 8
+ },
+ {
+  "table": "product_wordings",
+  "approx_rows": 0
+ },
+ {
+  "table": "products",
+  "approx_rows": 133
+ },
+ {
+  "table": "profiles",
+  "approx_rows": 4
+ },
+ {
+  "table": "project_materials",
+  "approx_rows": 3
+ },
+ {
+  "table": "projects",
+  "approx_rows": 1
+ },
+ {
+  "table": "purchase_order_lines",
+  "approx_rows": 6
+ },
+ {
+  "table": "purchase_orders",
+  "approx_rows": 1
+ },
+ {
+  "table": "quotation_lines",
+  "approx_rows": 128
+ },
+ {
+  "table": "quotation_sections",
+  "approx_rows": 18
+ },
+ {
+  "table": "quotations",
+  "approx_rows": 3
+ },
+ {
+  "table": "scope_documents",
+  "approx_rows": 1
+ },
+ {
+  "table": "settings",
+  "approx_rows": 29
+ },
+ {
+  "table": "shipment_documents",
+  "approx_rows": 0
+ },
+ {
+  "table": "shipment_lines",
+  "approx_rows": 28
+ },
+ {
+  "table": "shipments",
+  "approx_rows": 2
+ },
+ {
+  "table": "spec_equivalents",
+  "approx_rows": 38
+ },
+ {
+  "table": "stock",
+  "approx_rows": 2
+ },
+ {
+  "table": "stock_movements",
+  "approx_rows": 3
+ },
+ {
+  "table": "warehouses",
+  "approx_rows": 2
+ }
+]

@@ -1,0 +1,82 @@
+[
+ {
+  "id": "6b48d731-4bfd-4e99-9fc0-d454a34c94b5",
+  "product_id": "2d75d3f0-b986-41de-abb0-81f40abb3483",
+  "alias": "R3000"
+ },
+ {
+  "id": "0aa42027-a01b-4ec8-9ffb-27fc56ca1a57",
+  "product_id": "5e03702f-9352-4b9f-90c0-85b5feb47ce6",
+  "alias": "R3000 Cold Polyurea Supreme"
+ },
+ {
+  "id": "fbae79c4-d7f6-4775-95f6-fcd0b4b6d67d",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "alias": "IBT MAX B1K"
+ },
+ {
+  "id": "058055f5-a0a6-4bf4-acaa-be72cf52d01b",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "alias": "Ibtmax B 1 K"
+ },
+ {
+  "id": "2762fee9-a6f4-4685-a451-03315237c14b",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "alias": "Ibtmax B1K"
+ },
+ {
+  "id": "4fad8aa6-51d1-49e8-ad2a-a57fff95c334",
+  "product_id": "7435ced9-12d7-4833-909f-8b8b95693db7",
+  "alias": "R3000 ST"
+ },
+ {
+  "id": "6d882d7e-b9d4-4ae2-b0f7-e10fb2e2a5b2",
+  "product_id": "78108e32-85d3-490a-bb86-79a4bc25cb1c",
+  "alias": "R3000 Cold Polyurea"
+ },
+ {
+  "id": "46904c89-5d4f-452c-b94c-da7be8bd6695",
+  "product_id": "80a82db7-b859-46f6-843a-56badd2d9de4",
+  "alias": "P-Floor"
+ },
+ {
+  "id": "1c11a39e-98cc-4c93-9e01-932c63995307",
+  "product_id": "80a82db7-b859-46f6-843a-56badd2d9de4",
+  "alias": "PFloor"
+ },
+ {
+  "id": "376228b8-eb58-4f5a-977e-a5c0adfc999c",
+  "product_id": "97d21e9d-74af-4df6-af68-fc94af3c23d4",
+  "alias": "R3000 Aqua 2K"
+ },
+ {
+  "id": "2c5864af-83e7-4065-95a6-849523a8ad47",
+  "product_id": "b63d8260-8b40-4af8-adcc-2b1099cb3e38",
+  "alias": "Epoxy 100"
+ },
+ {
+  "id": "c154a578-b797-4a95-b7c9-2caaa96f6181",
+  "product_id": "c1e3a7ec-d637-4ced-9d23-e7d1f812e8c8",
+  "alias": "Geomax"
+ },
+ {
+  "id": "d3cd1574-9039-49bc-9063-b0516794332d",
+  "product_id": "c1e3a7ec-d637-4ced-9d23-e7d1f812e8c8",
+  "alias": "Geomax 80 gr/m\u00b2"
+ },
+ {
+  "id": "0343fafe-d235-4281-9aa9-0a74dccab309",
+  "product_id": "c1e3a7ec-d637-4ced-9d23-e7d1f812e8c8",
+  "alias": "Geomax 80gr/m2"
+ },
+ {
+  "id": "507c44fd-1709-47ca-8614-73c1be97731c",
+  "product_id": "d82a33cd-4e2e-494a-958d-143c56b66bba",
+  "alias": "CBT Dur"
+ },
+ {
+  "id": "55985194-2cd2-4369-8c86-db7f356c9a90",
+  "product_id": "d82a33cd-4e2e-494a-958d-143c56b66bba",
+  "alias": "CBT-Dur"
+ }
+]

@@ -1,0 +1,618 @@
+[
+ {
+  "schema": "public",
+  "name": "activity_log",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "activity_log_id_seq",
+  "kind": "S",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "applied_migrations",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "approval_documents",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "approval_progress",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "approval_requirements",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "approval_watch",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "approvals",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "bank_accounts",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "cash_position",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "catalogue_pricing",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "clients",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "commitment_documents",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "commitment_lines",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "commitment_totals",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "commitments",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "commitments_outstanding",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "correspondence",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "document_watch",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "expenses",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "field_visits",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "inquiries",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "invoice_lines",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "invoice_payments",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "invoice_totals",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "invoices",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "offices",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "open_order_lines",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "partner_ledger",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "partners",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "payment_milestones",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "payroll",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "po_documents",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "product_aliases",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "product_documents",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "product_packs",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "product_transport",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "product_transport_summary",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "product_wordings",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "products",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "profiles",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "project_actuals",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "project_materials",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "project_totals",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "projects",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "purchase_order_lines",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "purchase_order_totals",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "purchase_orders",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "quotation_lines",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "quotation_sections",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "quotation_totals",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "quotations",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "requirement_watch",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "scope_documents",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "settings",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "shipment_documents",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "shipment_lines",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "shipment_totals",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "shipments",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "spec_equivalents",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "stale_inquiries",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "stock",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "stock_detail",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "stock_movements",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "stock_position",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "visit_funnel",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "visit_log",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "visit_scoreboard",
+  "kind": "v",
+  "rls_enabled": false,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "public",
+  "name": "warehouses",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "buckets",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "buckets_analytics",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "buckets_vectors",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "migrations",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "objects",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "s3_multipart_uploads",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "s3_multipart_uploads_parts",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ },
+ {
+  "schema": "storage",
+  "name": "vector_indexes",
+  "kind": "r",
+  "rls_enabled": true,
+  "rls_forced": false,
+  "comment": null
+ }
+]

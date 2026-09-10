@@ -1,0 +1,344 @@
+[
+ {
+  "id": "afa006f0-9bff-4efb-87cc-be707151cce9",
+  "term": "aliphatic",
+  "product_id": "ce60a225-042e-4d56-b5e8-bd9862b2db9d",
+  "role": "uv",
+  "confidence": "likely",
+  "note": "Aliphatic PU topcoat.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "dac234f3-ab43-4197-a2b8-244479d5d4cf",
+  "term": "anti carbonation",
+  "product_id": null,
+  "role": "wall",
+  "confidence": "weak",
+  "note": "We do not carry an anti-carbonation coating.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "344df61f-a4b3-4535-8d1c-205ebd4df440",
+  "term": "anti-carbonation",
+  "product_id": null,
+  "role": "wall",
+  "confidence": "weak",
+  "note": "We do not carry an anti-carbonation coating. Either buy it in and mark it up, or take this item out and price only the flooring.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "b1469b7b-3e19-441b-b0fe-9eef5c819e71",
+  "term": "carting away",
+  "product_id": null,
+  "role": "prep",
+  "confidence": "weak",
+  "note": "Breaking out and removing the old screed. Site work.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "1f1843dd-75f1-4094-b933-7c5c16ce1f60",
+  "term": "damp proof membrane",
+  "product_id": "a3a3c886-e70d-403f-9e17-8e29cc1c1ec4",
+  "role": "dpm",
+  "confidence": "likely",
+  "note": "Damp proof membrane, meaning a primer that tolerates a damp slab.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "8cc3f509-cdc5-4125-9774-009d037b54bd",
+  "term": "deck shield finish",
+  "product_id": "6f8ac461-be14-4e5d-8eae-312cdc66db63",
+  "role": "finish",
+  "confidence": "likely",
+  "note": "BT-FloortTop 1K is the protective finish for heavy traffic flooring including car parks.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "84dacdad-759f-4bd1-9985-b8e4bf8495d5",
+  "term": "deck shield hydra seal dpm",
+  "product_id": "a3a3c886-e70d-403f-9e17-8e29cc1c1ec4",
+  "role": "dpm",
+  "confidence": "likely",
+  "note": "A damp proof membrane under a deck coating is a primer that will go onto concrete still holding moisture. That is what Humidity Primer is for.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "26b121ad-a59c-4677-bee8-e6f729fe22a6",
+  "term": "deck shield sf",
+  "product_id": "80a82db7-b859-46f6-843a-56badd2d9de4",
+  "role": "body",
+  "confidence": "weak",
+  "note": "The body coat of a car park deck. IBT-Floor is our self-levelling floor for car parks, but the build-up needs confirming against the traffic and the fall.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "3f5ae160-53c1-4571-8c3b-3d0e3ba90ebd",
+  "term": "deck shield sf",
+  "product_id": "7d2f5660-f42a-4a7c-ab34-6d4dae7bf71f",
+  "role": "body",
+  "confidence": "weak",
+  "note": "A sprayed alternative for the body coat where the area justifies mobilising a rig.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "252af696-e893-421f-bf7c-3b4fd58ecce0",
+  "term": "deck shield uv",
+  "product_id": "ce60a225-042e-4d56-b5e8-bd9862b2db9d",
+  "role": "uv",
+  "confidence": "firm",
+  "note": "The UV layer of a deck system is an aliphatic PU topcoat. CBTDUR Eco is ours, and is sold for garage flooring and heavy traffic parking.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "0e4dccb0-c29b-4b27-83b8-81617fff8dc5",
+  "term": "dpm",
+  "product_id": "a3a3c886-e70d-403f-9e17-8e29cc1c1ec4",
+  "role": "dpm",
+  "confidence": "likely",
+  "note": "Damp proof membrane, meaning a primer that tolerates a damp slab.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "f2f4103b-2f83-4144-9100-4dadcfb041e5",
+  "term": "dpm",
+  "product_id": "fb5a22f9-f773-4957-b1aa-130e9a5b307e",
+  "role": "dpm",
+  "confidence": "weak",
+  "note": "The other way to prime a wet substrate. Cheaper, and epoxy rather than PU.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "585e2e3b-a20d-4df6-949b-9feb36759c18",
+  "term": "dulux acrylic primer",
+  "product_id": null,
+  "role": "wall",
+  "confidence": "weak",
+  "note": "No equivalent in our range. This is a decorative wall primer, not a resin primer.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "5c2e2928-4471-46d4-8a99-f8a476c72614",
+  "term": "dulux easy clean",
+  "product_id": null,
+  "role": "wall",
+  "confidence": "weak",
+  "note": "No equivalent in our range. An interior emulsion.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "d6e98410-8d6c-4482-a601-94d1f1f775e2",
+  "term": "dulux stucco",
+  "product_id": null,
+  "role": "wall",
+  "confidence": "weak",
+  "note": "No equivalent in our range. A levelling render for walls.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "0bc155f3-95b7-4093-b3b6-7f6b1982a4d3",
+  "term": "dulux weathershield",
+  "product_id": null,
+  "role": "wall",
+  "confidence": "weak",
+  "note": "No equivalent in our range. An exterior masonry paint.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "c3f2de95-f3d6-4658-b07b-9d39592c5c8f",
+  "term": "expansion joint",
+  "product_id": null,
+  "role": "floor",
+  "confidence": "weak",
+  "note": "A jointing system with a steel cover. We supply the coating, not the joint. Price it in or take it out.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "41cede15-aed9-4428-90f2-99b6584597c7",
+  "term": "geotextile",
+  "product_id": "c1e3a7ec-d637-4ced-9d23-e7d1f812e8c8",
+  "role": "reinforcement",
+  "confidence": "firm",
+  "note": "Geomax is the geotextile we reinforce membranes with.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "d30c64d7-798e-4ab0-8b59-39c3a04f4aae",
+  "term": "hydra seal",
+  "product_id": "a3a3c886-e70d-403f-9e17-8e29cc1c1ec4",
+  "role": "dpm",
+  "confidence": "likely",
+  "note": "The DPM layer of a Deck Shield build-up.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "8cb9b9ac-c588-4b3b-9cf2-4dacea88cbcb",
+  "term": "insituconcrete",
+  "product_id": null,
+  "role": "floor",
+  "confidence": "weak",
+  "note": "Cast in place concrete. Builders work.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "a6ec93c4-3c6e-4f95-9a94-a19e15dc239a",
+  "term": "masterseal",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "role": "body",
+  "confidence": "likely",
+  "note": "A polyurethane waterproofing membrane under the screed. IBTMAX B 1K is our one component PU membrane. Confirm the build-up: theirs may be a two coat system.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "341aec1d-b0da-45f3-864a-ce297b885107",
+  "term": "masterseal m866",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "role": "body",
+  "confidence": "likely",
+  "note": "A polyurethane waterproofing membrane under the screed.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "04f85e63-f765-434a-85ce-ba5d00e3398f",
+  "term": "mastertop",
+  "product_id": null,
+  "role": "floor",
+  "confidence": "weak",
+  "note": "A dry shake floor hardener and screed topping. We do not carry one. This is a screed trade item: price it as builders work or buy it in.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "0f9fe34e-f0f6-4b69-9394-0b5ae75547a5",
+  "term": "polyurethane cement",
+  "product_id": "76bb4e50-2308-4aef-a149-7112bfa0359f",
+  "role": "body",
+  "confidence": "firm",
+  "note": "Polyurethane cement screed.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "4e36e4cb-f094-471e-ac36-b8fff0a9e960",
+  "term": "polyurethane membrane",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "role": "body",
+  "confidence": "likely",
+  "note": "The one component PU membrane we use for roofs, terraces and planters.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "45f4aa8a-04a3-4362-ac0d-9223a9eee71d",
+  "term": "primer",
+  "product_id": "fb5a22f9-f773-4957-b1aa-130e9a5b307e",
+  "role": "primer",
+  "confidence": "weak",
+  "note": "The general purpose epoxy primer, when the bill says only \"primer\".",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "b596c8b2-06e3-4f2f-a6e1-fd6d26a1601c",
+  "term": "pu cement",
+  "product_id": "76bb4e50-2308-4aef-a149-7112bfa0359f",
+  "role": "body",
+  "confidence": "firm",
+  "note": "Polyurethane cement screed.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "e8b67e92-593e-4609-b737-029f41bd3915",
+  "term": "pu membrane",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "role": "body",
+  "confidence": "likely",
+  "note": "The one component PU membrane we use for roofs, terraces and planters.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "e2e6609d-da7a-449e-9eeb-a4acd72643c9",
+  "term": "quartz",
+  "product_id": "1fc002a2-5954-43dc-8507-516e6c65b73f",
+  "role": "aggregate",
+  "confidence": "likely",
+  "note": "Broadcast quartz for slip resistance.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "465e35c4-f7ec-4d22-90f5-c94cfe275154",
+  "term": "screed with shutters",
+  "product_id": null,
+  "role": "floor",
+  "confidence": "weak",
+  "note": "75mm of sand and cement with steel mesh is builders work, not a coating.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "775549e3-284f-48bc-8ff8-c983015cbd66",
+  "term": "steel bars",
+  "product_id": null,
+  "role": "floor",
+  "confidence": "weak",
+  "note": "Reinforcement steel, not a coating.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "cf9ec754-426f-4c14-a2a6-b10e41765880",
+  "term": "surface preparation",
+  "product_id": "ee3f39a9-3500-49e8-9794-433516bdefff",
+  "role": "prep",
+  "confidence": "weak",
+  "note": "Where the bill means a bonding bridge rather than shot blasting.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "513078f7-77c2-45bd-9436-a2344f5ce5fa",
+  "term": "ucret",
+  "product_id": "76bb4e50-2308-4aef-a149-7112bfa0359f",
+  "role": "body",
+  "confidence": "firm",
+  "note": "Ucrete, spelled as the bill spells it. Our PU cement mortar is BT-Crete SL.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "93cf0dbd-98a4-43b3-a5d1-9171b8b1b7e7",
+  "term": "ucrete",
+  "product_id": "76bb4e50-2308-4aef-a149-7112bfa0359f",
+  "role": "body",
+  "confidence": "firm",
+  "note": "Ucrete is a polyurethane cement screed for food processing floors. BT-Crete SL is ours: a PU cement mortar for the food industry, food processing and kitchens. It is the same product under a different name.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "77490a55-1937-4bef-a115-3915bea013ab",
+  "term": "ucrete rg",
+  "product_id": "76bb4e50-2308-4aef-a149-7112bfa0359f",
+  "role": "body",
+  "confidence": "likely",
+  "note": "The trowelled grade, used here for the coved skirting. Same material as the floor.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "8e1d4bfd-1a1e-4c63-a60a-2d0df922a2f8",
+  "term": "uv topcoat",
+  "product_id": "ce60a225-042e-4d56-b5e8-bd9862b2db9d",
+  "role": "uv",
+  "confidence": "firm",
+  "note": "Aliphatic PU, which is what makes a topcoat UV stable.",
+  "created_at": "2026-09-08 10:31:33.657085+00"
+ },
+ {
+  "id": "510ee95b-bc3d-4d0f-a79f-3f490fe3d8c0",
+  "term": "waterproofing membrane",
+  "product_id": "6f5234db-24a1-4e72-b50f-4577d26fce27",
+  "role": "body",
+  "confidence": "likely",
+  "note": "Our one component polyurethane membrane.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ },
+ {
+  "id": "9ec9078b-027e-4724-8c79-85c34096fdfc",
+  "term": "welded steel mesh",
+  "product_id": null,
+  "role": "floor",
+  "confidence": "weak",
+  "note": "Reinforcement mesh. A steel item, not a coating.",
+  "created_at": "2026-09-08 14:49:36.654503+00"
+ }
+]

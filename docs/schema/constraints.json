@@ -1,0 +1,1550 @@
+[
+ {
+  "schema": "public",
+  "table": "approval_documents",
+  "conname": "approval_documents_has_a_source",
+  "contype": "c",
+  "definition": "CHECK (storage_path IS NOT NULL OR external_url IS NOT NULL)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitment_documents",
+  "conname": "commitment_documents_has_a_source",
+  "contype": "c",
+  "definition": "CHECK (storage_path IS NOT NULL OR external_url IS NOT NULL)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitments",
+  "conname": "commitments_settled_has_an_expense",
+  "contype": "c",
+  "definition": "CHECK (status = 'settled'::commitment_status AND expense_id IS NOT NULL OR status <> 'settled'::commitment_status AND expense_id IS NULL)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "po_documents",
+  "conname": "po_documents_has_a_source",
+  "contype": "c",
+  "definition": "CHECK (storage_path IS NOT NULL OR external_url IS NOT NULL)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_documents",
+  "conname": "product_documents_has_a_source",
+  "contype": "c",
+  "definition": "CHECK (storage_path IS NOT NULL OR external_url IS NOT NULL)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_packs",
+  "conname": "product_packs_priced_pack_has_a_quantity",
+  "contype": "c",
+  "definition": "CHECK (is_poa OR pack_qty IS NOT NULL)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "profiles",
+  "conname": "profiles_language_check",
+  "contype": "c",
+  "definition": "CHECK (language = ANY (ARRAY['en'::text, 'nl'::text, 'fr'::text]))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "profiles",
+  "conname": "profiles_role_check",
+  "contype": "c",
+  "definition": "CHECK (role = ANY (ARRAY['owner'::text, 'full'::text, 'staff'::text]))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "projects",
+  "conname": "projects_progress_pct_check",
+  "contype": "c",
+  "definition": "CHECK (progress_pct >= 0 AND progress_pct <= 100)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_order_lines",
+  "conname": "po_line_discount_ck",
+  "contype": "c",
+  "definition": "CHECK (discount_pct >= 0::numeric AND discount_pct < 100::numeric)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_order_lines",
+  "conname": "po_line_not_over_received",
+  "contype": "c",
+  "definition": "CHECK (qty_received <= (qty_ordered + 0.001))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_order_lines",
+  "conname": "purchase_order_lines_qty_ordered_check",
+  "contype": "c",
+  "definition": "CHECK (qty_ordered >= 0::numeric)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_order_lines",
+  "conname": "purchase_order_lines_qty_received_check",
+  "contype": "c",
+  "definition": "CHECK (qty_received >= 0::numeric)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotation_lines",
+  "conname": "quotation_lines_costing_ck",
+  "contype": "c",
+  "definition": "CHECK (NOT (is_costing AND is_spec_note))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_currency_check",
+  "contype": "c",
+  "definition": "CHECK (currency = ANY (ARRAY['AED'::text, 'EUR'::text]))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_discount_ck",
+  "contype": "c",
+  "definition": "CHECK (discount_amount IS NULL OR discount_amount >= 0::numeric)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_language_check",
+  "contype": "c",
+  "definition": "CHECK (language = ANY (ARRAY['en'::text, 'nl'::text, 'fr'::text]))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_price_mode_ck",
+  "contype": "c",
+  "definition": "CHECK (price_mode IS NULL OR (price_mode = ANY (ARRAY['spread'::text, 'discount'::text])))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipment_documents",
+  "conname": "shipment_documents_has_a_source",
+  "contype": "c",
+  "definition": "CHECK (storage_path IS NOT NULL OR external_url IS NOT NULL)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "spec_equivalents",
+  "conname": "spec_equivalents_confidence_ck",
+  "contype": "c",
+  "definition": "CHECK (confidence = ANY (ARRAY['firm'::text, 'likely'::text, 'weak'::text]))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_direction_check",
+  "contype": "c",
+  "definition": "CHECK (direction = ANY (ARRAY['in'::text, 'out'::text]))",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_quantity_check",
+  "contype": "c",
+  "definition": "CHECK (quantity > 0::numeric)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approval_documents",
+  "conname": "approval_documents_approval_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (approval_id) REFERENCES approvals(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approval_requirements",
+  "conname": "approval_requirements_approval_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (approval_id) REFERENCES approvals(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approvals",
+  "conname": "approvals_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approvals",
+  "conname": "approvals_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approvals",
+  "conname": "approvals_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approvals",
+  "conname": "approvals_warehouse_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "bank_accounts",
+  "conname": "bank_accounts_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "clients",
+  "conname": "clients_created_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "clients",
+  "conname": "clients_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitment_documents",
+  "conname": "commitment_documents_commitment_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (commitment_id) REFERENCES commitments(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitment_lines",
+  "conname": "commitment_lines_commitment_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (commitment_id) REFERENCES commitments(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitments",
+  "conname": "commitments_expense_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitments",
+  "conname": "commitments_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitments",
+  "conname": "commitments_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "correspondence",
+  "conname": "correspondence_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "correspondence",
+  "conname": "correspondence_inquiry_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (inquiry_id) REFERENCES inquiries(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "correspondence",
+  "conname": "correspondence_logged_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (logged_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "correspondence",
+  "conname": "correspondence_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "correspondence",
+  "conname": "correspondence_quotation_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "expenses",
+  "conname": "expenses_bank_account_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "expenses",
+  "conname": "expenses_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "expenses",
+  "conname": "expenses_paid_by_partner_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (paid_by_partner_id) REFERENCES partners(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "expenses",
+  "conname": "expenses_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "expenses",
+  "conname": "expenses_shipment_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "field_visits",
+  "conname": "field_visits_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "field_visits",
+  "conname": "field_visits_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "inquiries",
+  "conname": "inquiries_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "inquiries",
+  "conname": "inquiries_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "inquiries",
+  "conname": "inquiries_owner_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (owner_id) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoice_lines",
+  "conname": "invoice_lines_invoice_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoice_payments",
+  "conname": "invoice_payments_bank_account_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoice_payments",
+  "conname": "invoice_payments_invoice_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_created_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_milestone_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (milestone_id) REFERENCES payment_milestones(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_quotation_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "partners",
+  "conname": "partners_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "payment_milestones",
+  "conname": "payment_milestones_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "payroll",
+  "conname": "payroll_bank_account_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "payroll",
+  "conname": "payroll_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "payroll",
+  "conname": "payroll_partner_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "po_documents",
+  "conname": "po_documents_po_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_aliases",
+  "conname": "product_aliases_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_documents",
+  "conname": "product_documents_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_documents",
+  "conname": "product_documents_uploaded_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (uploaded_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_packs",
+  "conname": "product_packs_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_transport",
+  "conname": "product_transport_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_wordings",
+  "conname": "product_wordings_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "profiles",
+  "conname": "profiles_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "profiles",
+  "conname": "profiles_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "project_materials",
+  "conname": "project_materials_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "project_materials",
+  "conname": "project_materials_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "project_materials",
+  "conname": "project_materials_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "projects",
+  "conname": "projects_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "projects",
+  "conname": "projects_inquiry_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (inquiry_id) REFERENCES inquiries(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "projects",
+  "conname": "projects_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "projects",
+  "conname": "projects_quotation_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_order_lines",
+  "conname": "purchase_order_lines_po_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_order_lines",
+  "conname": "purchase_order_lines_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "conname": "purchase_orders_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "conname": "purchase_orders_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "conname": "purchase_orders_quotation_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "conname": "purchase_orders_shipment_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "conname": "purchase_orders_warehouse_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotation_lines",
+  "conname": "quotation_lines_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotation_lines",
+  "conname": "quotation_lines_section_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (section_id) REFERENCES quotation_sections(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotation_sections",
+  "conname": "quotation_sections_quotation_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_created_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_inquiry_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (inquiry_id) REFERENCES inquiries(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "scope_documents",
+  "conname": "scope_documents_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "scope_documents",
+  "conname": "scope_documents_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "scope_documents",
+  "conname": "scope_documents_quotation_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "scope_documents",
+  "conname": "scope_documents_uploaded_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (uploaded_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "settings",
+  "conname": "settings_updated_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (updated_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipment_documents",
+  "conname": "shipment_documents_shipment_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipment_lines",
+  "conname": "shipment_lines_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipment_lines",
+  "conname": "shipment_lines_shipment_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipments",
+  "conname": "shipments_client_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipments",
+  "conname": "shipments_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipments",
+  "conname": "shipments_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipments",
+  "conname": "shipments_quotation_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "spec_equivalents",
+  "conname": "spec_equivalents_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock",
+  "conname": "stock_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock",
+  "conname": "stock_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock",
+  "conname": "stock_warehouse_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_created_by_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_product_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_project_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_warehouse_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE RESTRICT",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "warehouses",
+  "conname": "warehouses_office_id_fkey",
+  "contype": "f",
+  "definition": "FOREIGN KEY (office_id) REFERENCES offices(id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "activity_log",
+  "conname": "activity_log_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "applied_migrations",
+  "conname": "applied_migrations_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (name)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approval_documents",
+  "conname": "approval_documents_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approval_requirements",
+  "conname": "approval_requirements_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approvals",
+  "conname": "approvals_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "bank_accounts",
+  "conname": "bank_accounts_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "clients",
+  "conname": "clients_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitment_documents",
+  "conname": "commitment_documents_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitment_lines",
+  "conname": "commitment_lines_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "commitments",
+  "conname": "commitments_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "correspondence",
+  "conname": "correspondence_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "expenses",
+  "conname": "expenses_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "field_visits",
+  "conname": "field_visits_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "inquiries",
+  "conname": "inquiries_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoice_lines",
+  "conname": "invoice_lines_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoice_payments",
+  "conname": "invoice_payments_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "offices",
+  "conname": "offices_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "partners",
+  "conname": "partners_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "payment_milestones",
+  "conname": "payment_milestones_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "payroll",
+  "conname": "payroll_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "po_documents",
+  "conname": "po_documents_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_aliases",
+  "conname": "product_aliases_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_documents",
+  "conname": "product_documents_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_packs",
+  "conname": "product_packs_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_transport",
+  "conname": "product_transport_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_wordings",
+  "conname": "product_wordings_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "products",
+  "conname": "products_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "profiles",
+  "conname": "profiles_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "project_materials",
+  "conname": "project_materials_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "projects",
+  "conname": "projects_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_order_lines",
+  "conname": "purchase_order_lines_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "conname": "purchase_orders_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotation_lines",
+  "conname": "quotation_lines_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotation_sections",
+  "conname": "quotation_sections_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "scope_documents",
+  "conname": "scope_documents_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "settings",
+  "conname": "settings_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (key)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipment_documents",
+  "conname": "shipment_documents_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipment_lines",
+  "conname": "shipment_lines_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipments",
+  "conname": "shipments_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "spec_equivalents",
+  "conname": "spec_equivalents_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock",
+  "conname": "stock_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock_movements",
+  "conname": "stock_movements_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "warehouses",
+  "conname": "warehouses_pkey",
+  "contype": "p",
+  "definition": "PRIMARY KEY (id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "approval_requirements",
+  "conname": "approval_requirements_approval_id_position_key",
+  "contype": "u",
+  "definition": "UNIQUE (approval_id, \"position\")",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "invoices",
+  "conname": "invoices_reference_key",
+  "contype": "u",
+  "definition": "UNIQUE (reference)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "offices",
+  "conname": "offices_code_key",
+  "contype": "u",
+  "definition": "UNIQUE (code)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "product_wordings",
+  "conname": "product_wordings_product_id_wording_key",
+  "contype": "u",
+  "definition": "UNIQUE (product_id, wording)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "profiles",
+  "conname": "profiles_email_key",
+  "contype": "u",
+  "definition": "UNIQUE (email)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "purchase_orders",
+  "conname": "purchase_orders_reference_key",
+  "contype": "u",
+  "definition": "UNIQUE (reference)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "quotations",
+  "conname": "quotations_reference_revision_key",
+  "contype": "u",
+  "definition": "UNIQUE (reference, revision)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "shipments",
+  "conname": "shipments_reference_key",
+  "contype": "u",
+  "definition": "UNIQUE (reference)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "stock",
+  "conname": "stock_product_id_warehouse_id_key",
+  "contype": "u",
+  "definition": "UNIQUE (product_id, warehouse_id)",
+  "condeferrable": false,
+  "condeferred": false
+ },
+ {
+  "schema": "public",
+  "table": "warehouses",
+  "conname": "warehouses_name_key",
+  "contype": "u",
+  "definition": "UNIQUE (name)",
+  "condeferrable": false,
+  "condeferred": false
+ }
+]

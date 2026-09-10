@@ -1,0 +1,56 @@
+[
+ {
+  "id": "67ec3e39-ebac-4b7a-8a50-06b96b8dad40",
+  "code": "DXB",
+  "name": "Dubai",
+  "legal_name": "BUILD TECH PROTECTION MATERIALS L.L.C",
+  "country": "United Arab Emirates",
+  "address": "Dubai Maritime City - MBC-1, Dubai",
+  "email": null,
+  "phone": null,
+  "tax_id": null,
+  "tax_id_label": "TRN",
+  "currency": "AED",
+  "vat_rate": "0.0500",
+  "quote_prefix": "",
+  "quote_suffix": " BT",
+  "quote_digits": 4,
+  "quote_next": 732,
+  "languages": [
+   "en"
+  ],
+  "default_lang": "en",
+  "bank_details": null,
+  "terms": null,
+  "is_active": true,
+  "position": 1
+ },
+ {
+  "id": "0cd5c7da-1f3b-46e8-b810-d0137f2bf4d0",
+  "code": "BRU",
+  "name": "Bruges",
+  "legal_name": "Build-Tech Pro B.V",
+  "country": "Belgium",
+  "address": "Gulden Vlieslaan 56, 8000 Brugge",
+  "email": null,
+  "phone": null,
+  "tax_id": "BE 1000.969.229",
+  "tax_id_label": "BTW",
+  "currency": "EUR",
+  "vat_rate": "0.2100",
+  "quote_prefix": "",
+  "quote_suffix": " BE",
+  "quote_digits": 4,
+  "quote_next": 1,
+  "languages": [
+   "nl",
+   "fr",
+   "en"
+  ],
+  "default_lang": "nl",
+  "bank_details": null,
+  "terms": null,
+  "is_active": true,
+  "position": 2
+ }
+]
