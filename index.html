@@ -4048,13 +4048,14 @@ function Catalogue({rate,focus,clearFocus}){
             return html`
             <div class="pk" key=${k.id}>
               <span>${k.label}</span>
-              <span class="price">${k.is_poa?'On application':AED(k.eur_per_unit*rate)+' / '+k.unit}</span>
+              ${/* converted at the rate, so it is dirhams whichever office is on screen */''}
+              <span class="price">${k.is_poa?'On application':AED(k.eur_per_unit*rate,'AED')+' / '+k.unit}</span>
             </div>
             ${c && html`<div class="pk costline" key=${k.id+'-c'}>
-              <span>Costs us ${AED(Number(c.cost_aed))}${c.material_cost_aed_m2!=null
-                ? ', '+AED(Number(c.material_cost_aed_m2))+' / m²' : ''}</span>
+              <span>Costs us ${AED(Number(c.cost_aed),'AED')}${c.material_cost_aed_m2!=null
+                ? ', '+AED(Number(c.material_cost_aed_m2),'AED')+' / m²' : ''}</span>
               <span class="price">${c.sell_aed_m2!=null
-                ? 'Sell '+AED(Number(c.sell_aed_m2))+' / m²' : ''}</span>
+                ? 'Sell '+AED(Number(c.sell_aed_m2),'AED')+' / m²' : ''}</span>
             </div>`}`;
           })}
         </div>`)}
@@ -4340,29 +4341,29 @@ function ProjectPage({id,clients,back}){
               <th class="n">${done?'Difference':'Still to spend'}</th></tr></thead>
             <tbody>
               <tr><td>Costs booked to the job${nz(act.labour_cost)>0
-                    ? html`<div class="m muted">of which ${AED0(act.labour_cost)} is labour</div>`:null}</td>
-                  <td class="n muted">—</td><td class="n">${AED0(act.costs_booked)}</td><td class="n"></td></tr>
+                    ? html`<div class="m muted">of which ${AED0(act.labour_cost,'AED')} is labour</div>`:null}</td>
+                  <td class="n muted">—</td><td class="n">${AED0(act.costs_booked,'AED')}</td><td class="n"></td></tr>
               <tr><td>Shipments against the job</td>
-                  <td class="n muted">—</td><td class="n">${AED0(act.shipment_cost)}</td><td class="n"></td></tr>
+                  <td class="n muted">—</td><td class="n">${AED0(act.shipment_cost,'AED')}</td><td class="n"></td></tr>
               <tr><td>Material issued from stock<div class="m muted">valued at what we buy it for</div></td>
-                  <td class="n muted">—</td><td class="n">${AED0(act.material_issued)}</td><td class="n"></td></tr>
+                  <td class="n muted">—</td><td class="n">${AED0(act.material_issued,'AED')}</td><td class="n"></td></tr>
               <tr class="tot"><td><b>Total cost</b></td>
-                  <td class="n"><b>${AED0(act.quoted_cost)}</b></td>
-                  <td class="n"><b>${AED0(act.actual_cost)}</b></td>
+                  <td class="n"><b>${AED0(act.quoted_cost,'AED')}</b></td>
+                  <td class="n"><b>${AED0(act.actual_cost,'AED')}</b></td>
                   <td class=${'n '+(over?'short':'')}><b>${
                     nz(act.quoted_cost)<=0 ? '—'
-                    : over ? AED0(nz(act.actual_cost)-nz(act.quoted_cost))+' over'
-                    : AED0(nz(act.quoted_cost)-nz(act.actual_cost))}</b></td></tr>
+                    : over ? AED0(nz(act.actual_cost)-nz(act.quoted_cost),'AED')+' over'
+                    : AED0(nz(act.quoted_cost)-nz(act.actual_cost),'AED')}</b></td></tr>
             </tbody></table></div>
           <div class="grid2" style=${{marginTop:'14px'}}>
             <div class="statbox"><div class="k">Margin when we priced it</div>
               <div class="v">${act.quoted_margin_pct==null?'—':Number(act.quoted_margin_pct).toFixed(1)+'%'}</div>
-              <div class="s">${AED0(nz(act.contract_value)-nz(act.quoted_cost))} expected</div></div>
+              <div class="s">${AED0(nz(act.contract_value)-nz(act.quoted_cost),'AED')} expected</div></div>
             ${done ? html`<div class="statbox"><div class="k">Margin actually made</div>
               <div class="v" style=${{color:nz(act.actual_margin_pct)<0?'var(--crit)'
                 :nz(act.actual_margin_pct)+0.05<nz(act.quoted_margin_pct)?'var(--warn)':'var(--good)'}}>
                 ${act.actual_margin_pct==null?'—':Number(act.actual_margin_pct).toFixed(1)+'%'}</div>
-              <div class="s">${AED0(act.actual_gross)} kept${
+              <div class="s">${AED0(act.actual_gross,'AED')} kept${
                 act.quoted_margin_pct!=null&&act.actual_margin_pct!=null
                   ? ', '+Math.abs(nz(act.actual_margin_pct)-nz(act.quoted_margin_pct)).toFixed(1)
                     +' points '+(nz(act.actual_margin_pct)<nz(act.quoted_margin_pct)?'worse':'better')
@@ -4386,7 +4387,7 @@ function ProjectPage({id,clients,back}){
           <p class="muted" style=${{margin:'0 0 6px'}}>Costs booked to this job:</p>
           <ul class="plain">${spend.slice(0,8).map(x=>html`<li key=${x.id}>
             ${fmtDate(x.expense_date)+' · '+x.description+' '}
-            <span class="muted">${'· '+AED0(x.amount_aed)+(x.paid_on?'':', not yet paid')}</span>
+            <span class="muted">${'· '+AED0(x.amount_aed,'AED')+(x.paid_on?'':', not yet paid')}</span>
           </li>`)}</ul>
           ${spend.length>8 && html`<p class="muted">and ${spend.length-8} more, in Money out.</p>`}
         </div>`}
@@ -4931,8 +4932,8 @@ function ProductPage({id,rate,back,section}){
         <tbody>${(p.product_packs||[]).map(k=>html`<tr key=${k.id}>
           <td><b>${k.label}</b></td>
           <td class="n">${k.is_poa?'—':Number(k.eur_total||0).toFixed(2)}</td>
-          <td class="n">${k.is_poa?'On application':AED(nz(k.eur_total)*rate)}</td>
-          <td class="n">${k.is_poa?'—':AED(nz(k.eur_per_unit)*rate)+' / '+(k.unit||'kg')}</td>
+          <td class="n">${k.is_poa?'On application':AED(nz(k.eur_total)*rate,'AED')}</td>
+          <td class="n">${k.is_poa?'—':AED(nz(k.eur_per_unit)*rate,'AED')+' / '+(k.unit||'kg')}</td>
         </tr>`)}</tbody>
       </table></div>
     </div>
@@ -5548,7 +5549,7 @@ function Orders({rate,focus,clearFocus}){
       <button class="btn sp" onClick=${()=>setNeu(true)}>${_t("New order")}</button></div>
 
     <div class="cards">
-      <div class="card"><div class="k">On order</div><div class="v">${AED0(onOrder)}</div>
+      <div class="card"><div class="k">On order</div><div class="v">${AED0(onOrder,'AED')}</div>
         <div class="s">${live.length} ${plural(live.length,'order')} not yet fully received</div></div>
       <div class=${'card '+(late.length?'alert':'okc')}><div class="k">Past the date</div>
         <div class="v">${late.length}</div>
@@ -5570,7 +5571,7 @@ function Orders({rate,focus,clearFocus}){
             <td class="muted">${r.supplier}</td>
             <td class="muted">${r.quotations?.reference||r.projects?.name||'—'}</td>
             <td><span class=${'pill '+poPill(r.status)}>${poLabel(r.status)}</span></td>
-            <td class="n">${AED0(t.value_aed)}</td>
+            <td class="n">${AED0(t.value_aed,'AED')}</td>
             <td class=${'n '+(nz(t.received_pct)>=100?'':'muted')}>${nz(t.received_pct).toFixed(0)}%</td>
             <td class=${'muted '+(r.expected_on&&r.expected_on<today()&&!['received','cancelled'].includes(r.status)?'short':'')}>
               ${fmtDate(r.expected_on)||'—'}</td>
@@ -5951,26 +5952,26 @@ function NewOrderModal({quotes,projects,whs,rate,close,saved}){
                   <tr class="secrow">
                     <td><b>${g.title}</b></td>
                     <td class="n">${nz(g.m2).toLocaleString()}</td>
-                    <td class="n"><b>${AED2(g.aedPerM2)}</b></td>
-                    <td class="n"><b>${AED0(g.aed)}</b></td>
+                    <td class="n"><b>${AED2(g.aedPerM2,'AED')}</b></td>
+                    <td class="n"><b>${AED0(g.aed,'AED')}</b></td>
                   </tr>
                   ${g.items.map(it=>html`<tr class="itemrow" key=${it.name}>
                     <td>${'· '+it.name}${it.byArea ? html`<span class="muted">${
                         ' one for one with the area'}</span>`
                       : html`<span class="muted">${' at '+round2(it.kgPerM2)+' kg/m², '
-                          +AED2(it.aedPerUnit)+' / kg'}</span>`}</td>
+                          +AED2(it.aedPerUnit,'AED')+' / kg'}</span>`}</td>
                     <td class="n muted">${round2(it.qty).toLocaleString()+' '+it.unit}</td>
-                    <td class="n muted">${AED2(it.aedPerM2)}</td>
-                    <td class="n muted">${AED0(it.aed)}</td>
+                    <td class="n muted">${AED2(it.aedPerM2,'AED')}</td>
+                    <td class="n muted">${AED0(it.aed,'AED')}</td>
                   </tr>`)}
                 </${Frag}>`)}
                 </tbody>
                 <tfoot><tr>
                   <td colspan="3"><b>What the work needs</b></td>
-                  <td class="n"><b>${AED0(preview.goodsNeeded)}</b></td>
+                  <td class="n"><b>${AED0(preview.goodsNeeded,'AED')}</b></td>
                 </tr><tr>
                   <td colspan="3">${'Whole packs, which is what you actually buy'}</td>
-                  <td class="n"><b>${AED0(ordered)}</b></td>
+                  <td class="n"><b>${AED0(ordered,'AED')}</b></td>
                 </tr></tfoot>
               </table>
 
@@ -6324,7 +6325,7 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
         +'so no stock is affected.'}</div>`}
 
     <div class="cards">
-      <div class="card"><div class="k">Order value</div><div class="v">${AED0(valueAed)}</div>
+      <div class="card"><div class="k">Order value</div><div class="v">${AED0(valueAed,'AED')}</div>
         <div class="s">${o.currency+' '+value.toLocaleString('en',{maximumFractionDigits:2})
           +' at '+nz(o.eur_aed_rate||rate)}</div></div>
       <div class=${'card '+(pct>=100?'okc':'')}><div class="k">Received</div>
@@ -6621,7 +6622,7 @@ function Shipments({rate}){
         <div class="s">Booked, in transit or at customs</div></div>
       <div class="card"><div class="k">Arriving this month</div><div class="v">${arriving.length}</div>
         <div class="s">By expected arrival date</div></div>
-      <div class="card"><div class="k">Money committed</div><div class="v">${AED0(openCost)}</div>
+      <div class="card"><div class="k">Money committed</div><div class="v">${AED0(openCost,'AED')}</div>
         <div class="s">Goods plus freight, duty and clearance</div></div>
       <div class=${'card '+(dg.length?'alert':'')}><div class="k">Carrying dangerous goods</div>
         <div class="v">${dg.length}</div>
@@ -6642,7 +6643,7 @@ function Shipments({rate}){
             <td><span class=${'sstat '+r.status}>${sLabel(r.status)}</span></td>
             <td class="muted">${fmtDate(r.etd)||'—'}</td>
             <td class="muted">${fmtDate(r.eta)||'—'}</td>
-            <td class="n">${AED0(t.landed_cost)}</td>
+            <td class="n">${AED0(t.landed_cost,'AED')}</td>
             <td class="n muted">${t.document_count||0}</td>
           </tr>`;})}</tbody></table></div>`
         : html`<div class="empty">No shipments yet. Create one from the quotation it is supplying.</div>`}
@@ -6849,11 +6850,11 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
     ${msg && html`<div class="ok">${msg}</div>`}
 
     <div class="cards">
-      <div class="card"><div class="k">Goods value</div><div class="v">${AED0(goodsAed)}</div>
+      <div class="card"><div class="k">Goods value</div><div class="v">${AED0(goodsAed,'AED')}</div>
         <div class="s">${s.quotations?.reference?'For '+s.quotations.reference:(s.clients?.name||'no quotation linked')}</div></div>
-      <div class="card"><div class="k">Cost to get it here</div><div class="v">${AED0(shipCost)}</div>
+      <div class="card"><div class="k">Cost to get it here</div><div class="v">${AED0(shipCost,'AED')}</div>
         <div class="s">Freight, insurance, duty and clearance</div></div>
-      <div class="card"><div class="k">Landed cost</div><div class="v">${AED0(landed)}</div>
+      <div class="card"><div class="k">Landed cost</div><div class="v">${AED0(landed,'AED')}</div>
         <div class="s">${goodsAed?((shipCost/goodsAed)*100).toFixed(1)+'% on top of goods':'Enter the goods value'}</div></div>
       <div class="card"><div class="k">Weight and packages</div>
         <div class="v">${grossKg?Math.round(grossKg).toLocaleString()+' kg':'—'}</div>
@@ -6935,10 +6936,10 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
                  onInput=${e=>set('other_cost',e.target.value)}/></div>
       </div>
       <div class="tot">
-        <span class="lbl">${_t("Goods")}</span><span class="val">${AED(goodsAed)}</span>
-        <span class="lbl">${_t("Getting it here")}</span><span class="val">${AED(shipCost)}</span>
+        <span class="lbl">${_t("Goods")}</span><span class="val">${AED(goodsAed,'AED')}</span>
+        <span class="lbl">${_t("Getting it here")}</span><span class="val">${AED(shipCost,'AED')}</span>
         <span class="lbl"><b>Landed cost</b></span>
-        <span class="val big">${AED(landed)}</span>
+        <span class="val big">${AED(landed,'AED')}</span>
       </div>
       <p class="muted" style=${{marginTop:'12px'}}>This is the figure to copy into the project's materials cost. It is what the goods actually cost you on the ground in Dubai.</p>
     </div></div>
@@ -11844,9 +11845,9 @@ function Commitments(){
     <div class="panel"><div class="panel-body">
       <div class="tot">
         <span class="lbl">${_t("Quoted, not yet incurred")}</span>
-        <span class="val big">${AED(total)}</span>
+        <span class="val big">${AED(total,'AED')}</span>
         ${cats.map(([c,v])=>html`<${Frag} key=${c}>
-          <span class="lbl">${c}</span><span class="val">${AED(v)}</span>
+          <span class="lbl">${c}</span><span class="val">${AED(v,'AED')}</span>
         </${Frag}>`)}
       </div>
       <p class="muted" style=${{marginTop:'10px'}}>
@@ -11910,12 +11911,12 @@ function Commitments(){
                                  r.status==='settled'?'lost':'lost')}>${r.status}</span>
           <span class="sp muted">${r.supplier}${r.reference?' · '+r.reference:''}${
             r.quoted_on?' · '+fmtDate(r.quoted_on):''}</span>
-          <b style=${{fontSize:'15px'}}>${AED(r.amount_aed)}</b>
+          <b style=${{fontSize:'15px'}}>${AED(r.amount_aed,'AED')}</b>
         </div>
         <div class="panel-body">
           ${!r.lines_agree && html`<div class="flagbox">
-            The lines add up to ${AED(r.lines_total)} but the quotation header
-            says ${AED(r.header_amount)}, a difference of ${AED(r.difference)}.
+            The lines add up to ${AED(r.lines_total,r.currency)} but the quotation header
+            says ${AED(r.header_amount,r.currency)}, a difference of ${AED(r.difference,r.currency)}.
             The header is what the supplier asked for; check the lines.</div>`}
 
           ${ls.length>0 && html`<div class="tw"><table>
@@ -11926,10 +11927,10 @@ function Commitments(){
                 <td>${l.service}</td>
                 <td class="muted">${l.detail||''}${l.is_estimate?' (estimate)':''}</td>
                 <td class="r">${nz(l.quantity)}</td>
-                <td class="r">${AED0(l.rate)}</td>
-                <td class="r">${AED0(l.amount)}</td></tr>`)}
+                <td class="r">${AED0(l.rate,r.currency)}</td>
+                <td class="r">${AED0(l.amount,r.currency)}</td></tr>`)}
               <tr class="tot"><td colspan="4"><b>Total</b></td>
-                  <td class="r"><b>${AED(r.header_amount)}</b></td></tr>
+                  <td class="r"><b>${AED(r.header_amount,r.currency)}</b></td></tr>
             </tbody></table></div>`}
 
           <div style=${{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center',
@@ -12218,8 +12219,8 @@ function Costs({rate}){
         <select style=${{width:'auto'}} value=${fMonth} onChange=${e=>setFMonth(e.target.value)}>
           <option value="">${_t("All months")}</option>
           ${months.map(m=>html`<option key=${m} value=${m}>${m}</option>`)}</select>
-        <span class="sp muted">${shown.length} ${plural(shown.length,'row')}, ${AED0(shownTotal)} out${
-          shownIn?', '+AED0(shownIn)+' in':''}${
+        <span class="sp muted">${shown.length} ${plural(shown.length,'row')}, ${AED0(shownTotal,'AED')} out${
+          shownIn?', '+AED0(shownIn,'AED')+' in':''}${
           unpaid.length?', '+unpaid.length+' unpaid':''}</span></div>
       ${shown.length ? html`<div class="tw"><table>
         <thead><tr><th>${_t("Date")}</th><th>${_t("Category")}</th><th>${_t("Description")}</th><th>${_t("Paid by")}</th>
@@ -12231,7 +12232,7 @@ function Costs({rate}){
             ${r.reference?html`<div class="muted" style=${{fontSize:'12px'}}>${r.reference}${
               r.projects?.name?' · '+r.projects.name:''}</div>`:''}</td>
           <td class="muted">${r.partners?.name||r.paid_by||'—'}</td>
-          <td class="n">${AED(r.amount_aed)}${r.currency==='EUR'?html`<div class="muted"
+          <td class="n">${AED(r.amount_aed,'AED')}${r.currency==='EUR'?html`<div class="muted"
             style=${{fontSize:'12px'}}>EUR ${fmtN(r.amount)}</div>`:''}</td>
           <td>${r.paid_on?html`<span class="pill won">paid</span>`
                         :html`<span class="pill quiet">owed</span>`}</td>
@@ -12441,11 +12442,12 @@ function Banks(){
                    onInput=${e=>up(i,'opening_date',e.target.value)}/></div>
         </div>
         <div class="tot">
-          <span class="lbl">${_t("Opening")}</span><span class="val">${AED(r.opening_balance)}</span>
-          <span class="lbl">${_t("Received")}</span><span class="val">${AED(p.received)}</span>
-          <span class="lbl">${_t("Spent")}</span><span class="val">${AED(nz(p.spent)+nz(p.wages_and_drawings))}</span>
+          ${/* an account is kept in its own money, whichever office is on screen */''}
+          <span class="lbl">${_t("Opening")}</span><span class="val">${AED(r.opening_balance,r.currency)}</span>
+          <span class="lbl">${_t("Received")}</span><span class="val">${AED(p.received,r.currency)}</span>
+          <span class="lbl">${_t("Spent")}</span><span class="val">${AED(nz(p.spent)+nz(p.wages_and_drawings),r.currency)}</span>
           <span class="lbl"><b>Balance now</b></span>
-          <span class=${'val big '+(nz(p.balance)<0?'neg':'pos')}>${AED(p.balance)}</span>
+          <span class=${'val big '+(nz(p.balance)<0?'neg':'pos')}>${AED(p.balance,r.currency)}</span>
         </div>
         <button class="btn sec sm" style=${{color:'var(--crit)',marginTop:'10px'}}
                 onClick=${()=>del(r)}>${_t("Remove this account")}</button>
