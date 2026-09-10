@@ -5585,7 +5585,10 @@ function Orders({rate,focus,clearFocus}){
   const [whs,setWhs]=useState([]); const [err,setErr]=useState('');
   const [view,setView]=useState('all');   // which orders the list shows
   useEffect(()=>{ if(focus){
-    if(focus==='new') setNeu(true); else setOpen(focus);
+    if(focus==='new') setNeu(true);
+    // "new:<quotation id>" is the shipping request asking for an order off that quotation
+    else if(typeof focus==='string' && focus.startsWith('new:')) setNeu({quotation_id:focus.slice(4)});
+    else setOpen(focus);
     clearFocus&&clearFocus(); } },[focus]);
 
   const load=useCallback(async()=>{
@@ -5665,7 +5668,7 @@ function Orders({rate,focus,clearFocus}){
             being typed again.</div>`}
     </div>
 
-    ${neu && html`<${NewOrderModal} quotes=${quotes} projects=${projects} whs=${whs} rate=${rate}
+    ${neu && html`<${NewOrderModal} quotes=${quotes} projects=${projects} whs=${whs} rate=${rate} seed=${neu}
       close=${()=>setNeu(false)}
       saved=${id=>{setNeu(false);load();setOpen(id);}}/>`}`;
 }
@@ -5690,8 +5693,10 @@ function dbWhy(msg){
 
 /* Build an order from a quotation, so the quantities come off the same take-off the
    shipping request uses rather than being typed a second time. */
-function NewOrderModal({quotes,projects,whs,rate,close,saved}){
-  const [f,setF]=useState({supplier:'Krypton Chemical S.L.',supplier_ref:'',quotation_id:'',
+function NewOrderModal({quotes,projects,whs,rate,close,saved,seed}){
+  // opened from a shipping request, the form starts on that quotation with its take-off
+  const [f,setF]=useState({supplier:'Krypton Chemical S.L.',supplier_ref:'',
+    quotation_id:(seed&&seed.quotation_id)||'',
     project_id:'',warehouse_id:whs[0]?.id||'',expected_on:'',currency:'EUR',fromQuote:true});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const [busy,setBusy]=useState(false); const [err,setErr]=useState('');
@@ -8022,7 +8027,7 @@ function cargoFromQuotation(secs, products, cfgNum){
 }
 
 /* What a forwarder is told, and what we are still missing before they can be firm. */
-function ShippingRequest({q, secs, cat, trans, settings, client}){
+function ShippingRequest({q, secs, cat, trans, settings, client, onOrder}){
   const cfgNum=(k,d)=>settingNumber(settings.find(s=>s.key===k)?.value, d);
   const c = useMemo(()=>cargoFromQuotation(secs, cat, cfgNum), [secs, cat, settings]);
   const [sdsFiles,setSdsFiles]=useState([]);
@@ -8115,6 +8120,12 @@ function ShippingRequest({q, secs, cat, trans, settings, client}){
   return html`<div class="panel ship-print">
     <div class="panel-head"><h2>${_t("Shipping request")}</h2>
       <div class="sp" style=${{display:'flex',gap:'8px'}}>
+        ${/* The request used to stop here, as a PDF for the forwarder, and the order had to
+              be typed from it. The same take-off now goes straight onto a draft order, to
+              be approved and sent. */''}
+        ${onOrder && html`<button class="btn sec" onClick=${onOrder}
+          title="A draft purchase order with these cargo lines on it, ready to be approved and sent">${
+          _t("Create an order from this request")}</button>`}
         <button class="btn sec" onClick=${savePdf}>${_t("Save as PDF")}</button>
         <button class="btn" onClick=${savePack} disabled=${!!packBusy}>
           ${packBusy?'Working…':'Download the whole pack'}</button>
@@ -8409,7 +8420,7 @@ const fmtDate = d => { if(!d) return '';
   const [y,m,dd] = String(d).slice(0,10).split('-');
   return (dd && m && y) ? dd+'/'+m+'/'+y : String(d); };
 
-function Quotations({rate,settings,offices,office,focus,clearFocus,me}){
+function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
   const [rows,setRows]=useState(null); const [openId,setOpenId]=useState(null);
   const [clients,setClients]=useState([]); const [loadErr,setLoadErr]=useState('');
   useEffect(()=>{ if(focus){ setOpenId(focus); clearFocus&&clearFocus(); } },[focus]);
@@ -8487,7 +8498,7 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me}){
   };
 
   if(!rows) return html`<div class="spinner"></div>`;
-  if(openId) return html`<${QuotationEditor} id=${openId} clients=${clients} settings=${settings}
+  if(openId) return html`<${QuotationEditor} id=${openId} clients=${clients} settings=${settings} go=${go}
       rate=${rate} offices=${offices} office=${office}
       back=${()=>{setOpenId(null);load();loadDocs();}}/>`;
 
@@ -10839,7 +10850,7 @@ function sectionsAtPrice(secs, target, onlySection){
   });
 }
 
-function QuotationEditor({id,clients,settings,rate,offices,office,back}){
+function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
   const isNew = id==='new';
   const [q,setQ]=useState(null); const [secs,setSecs]=useState([]);
   const [prods,setProds]=useState([]); const [busy,setBusy]=useState(false); const [msg,setMsg]=useState('');
@@ -11561,6 +11572,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back}){
         title="Throw the unsaved work away and keep the saved copy"
         >Discard it</button></div>`}
     ${shipOpen && html`<${ShippingRequest} q=${q} secs=${secs} cat=${cat} trans=${trans}
+                          onOrder=${go && q.id ? ()=>go(['orders','new:'+q.id]) : null}
                           settings=${settings} client=${clients.find(c=>c.id===q.client_id)}/>`}
     ${belowCost.length>0 && html`<div class="warnbar">
       ${belowCost.length} line${belowCost.length>1?'s are':' is'} priced below cost.</div>`}
@@ -14221,7 +14233,7 @@ function App(){
         ${tab==='pipeline'  && html`<${Pipeline}/>`}
         ${tab==='visits'    && html`<${Visits} go=${go}
                                      focus=${focusId} clearFocus=${clearFocus}/>`}
-        ${tab==='quotations'&& html`<${Quotations} rate=${rate} settings=${settings}
+        ${tab==='quotations'&& html`<${Quotations} rate=${rate} settings=${settings} go=${go}
                                      offices=${offices} office=${office}
                                      focus=${focusId} clearFocus=${clearFocus} me=${me}/>`}
         ${tab==='projects'  && html`<${Projects} focus=${focusId} clearFocus=${clearFocus}/>`}

@@ -375,6 +375,45 @@ checks.scope_draft = async page => {
   }
 };
 
+// Phase 5 D: quotation → shipping request → draft order with the cargo lines → approve → send → print.
+checks.order_from_request = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [prod] = await sql("select p.id, p.name from products p join product_packs k on k.product_id=p.id where not k.is_poa and k.unit ilike 'kg' and p.is_active order by p.name limit 1");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-SHIP', 4.27, '${dxb.id}', 'ZZTEST shipping') returning id`);
+  const [sec] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Roof') returning id`);
+  await sql(`insert into quotation_lines (section_id, position, description, is_spec_note, is_bold, unit, quantity, sell_rate, cost_rate) values
+    ('${sec.id}', 1, 'Supply and Install', false, false, 'sq.m', 100, 65.8, 36.19),
+    ('${sec.id}', 2, ${lit(prod.name + ' : Approx. 2,50 kg/m².')}, true, true, null, null, null, null)`);
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(500);
+    await go(page, 'Quotations'); await page.locator('tr', { hasText: 'ZZTEST-Q-SHIP' }).locator('td').nth(2).click();
+    await page.waitForSelector('button:has-text("Shipping request")', { timeout: 15000 }); await settle(1500);
+    await page.click('button:has-text("Shipping request")'); await settle(2000);
+    const cargo = (await page.locator('.ship-print').textContent()).replace(/\s+/g, ' ');
+    assert(cargo.includes(prod.name), `the shipping request lists the product (saw "${cargo.slice(0, 120)}")`);
+    await page.click('button:has-text("Create an order from this request")');
+    await page.waitForSelector('.modal button:has-text("Create order")', { timeout: 15000 }); await settle(3000);
+    const modal = (await page.locator('.modal').textContent()).replace(/\s+/g, ' ');
+    assert(modal.includes(prod.name), `the new order is built from the same take-off (saw "${modal.slice(0, 160)}")`);
+    await page.click('.modal button:has-text("Create order")'); await page.waitForSelector('.polrow', { timeout: 20000 }); await settle(1500);
+    const [po] = await sql(`select id, status, quotation_id from purchase_orders where quotation_id='${q.id}'`);
+    assert(po && po.status === 'draft', `a draft order exists against the quotation (saw ${po && po.status})`);
+    const lines = po ? await sql(`select description, product_id, packs, qty_ordered, unit_price, weight_kg from purchase_order_lines where po_id='${po.id}'`) : [];
+    assert(lines.length === 1 && lines[0].product_id === prod.id && Number(lines[0].packs) > 0 && Number(lines[0].qty_ordered) > 0,
+      `the order carries the cargo line with product, packs and quantity (saw ${JSON.stringify(lines)})`);
+    await page.click('button:has-text("Ask for approval")'); await settle(1500);
+    await page.click('button:has-text("Approve")'); await settle(1500);
+    await page.click('button:has-text("Mark as sent")'); await settle(1500);
+    const [after] = await sql(`select status from purchase_orders where id='${po.id}'`);
+    assert(after.status === 'sent', `approved and sent from the same screen (saw ${after.status})`);
+    const sheet = (await page.locator('.print-area').textContent()).replace(/\s+/g, ' ');
+    assert(/PURCHASE ORDER/.test(sheet) && sheet.includes(prod.name), 'the printable order carries the product');
+  } finally {
+    await sql(`delete from purchase_orders where quotation_id='${q.id}'`);
+    await sql(`delete from quotations where id='${q.id}'`);
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
