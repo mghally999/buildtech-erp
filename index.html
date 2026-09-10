@@ -337,6 +337,7 @@
 .offbtn{background:none;border:none;cursor:pointer;color:var(--ink-3);border-radius:6px;
   font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:1.2px;padding:5px 9px}
 .offbtn:hover{color:var(--ink)}
+.offnote{font-size:11px;color:var(--ink-3);margin-left:8px;white-space:nowrap}
 .offbtn.on{background:var(--brand);color:#fff}
 /* This used to be hidden on a phone. It should not be: it decides whether every figure
    on the screen is dirhams or euros, and Chris is the one most likely to be looking at
@@ -1950,6 +1951,8 @@ const OFFICE_OWNED = new Set([
   'stock_detail','stock_position','visit_funnel','visit_log','visit_scoreboard',
 ]);
 let OFFICE_ID = null;
+// the person's own office, where a record made in the company view is filed
+let MY_OFFICE_ID = null;
 
 /* One more try on a 401. In the burst of requests a screen fires as it opens, one can
    occasionally leave before the library has put the token on it; it comes back 401 with
@@ -1968,14 +1971,17 @@ const sb = {
   rpc: (...a) => sbRaw.rpc(...a),
   from(table){
     const q = sbRaw.from(table);
-    const scoped = !!OFFICE_ID && OFFICE_OWNED.has(table);
+    const owned = OFFICE_OWNED.has(table);
     const sel = q.select.bind(q);
-    q.select = (...a) => retryOnce(scoped ? sel(...a).eq('office_id', OFFICE_ID) : sel(...a));
-    if(!scoped) return q;
+    q.select = (...a) => retryOnce(owned && OFFICE_ID ? sel(...a).eq('office_id', OFFICE_ID) : sel(...a));
+    // A new record is filed under the office on screen, or in the company view under the
+    // person's own office. Never under whatever the database's default happens to be,
+    // which is how a Belgian's client ended up in Dubai's books.
+    const stamp = OFFICE_ID || MY_OFFICE_ID;
+    if(!owned || !stamp) return q;
     const ins = q.insert.bind(q);
-    q.insert = (rows,...a) => ins(Array.isArray(rows)
-      ? rows.map(r => ({office_id:OFFICE_ID, ...r}))
-      : {office_id:OFFICE_ID, ...rows}, ...a);
+    const stamped = r => ({...r, office_id: r.office_id || stamp});
+    q.insert = (rows,...a) => ins(Array.isArray(rows) ? rows.map(stamped) : stamped(rows), ...a);
     return q;
   },
 };
@@ -13805,6 +13811,7 @@ function App(){
   // Set before anything below renders, so every query a screen makes on this pass is
   // already scoped. Null means the BOTH view, where nothing is filtered on purpose.
   OFFICE_ID = office ? office.id : null;
+  MY_OFFICE_ID = (me && me.office_id) || (offices[0] && offices[0].id) || null;
   // and every screen can say which office's money a record is in, and convert it
   OFFICE_BY_ID = Object.fromEntries(offices.map(o=>[o.id,o]));
   EUR_AED = rate;
@@ -13880,6 +13887,9 @@ function App(){
             <button class=${'offbtn'+(officeCode==='ALL'?' on':'')}
               onClick=${()=>pickOffice('ALL')} title="Both offices together">${_t("BOTH")}</button>
           </div>`}
+          ${officeCode==='ALL' && offices.length>1 && html`<span class="offnote"
+            title="In the company view a new record is filed under your own office">${
+            'New records go to '+((OFFICE_BY_ID[MY_OFFICE_ID]||{}).name||'your office')}</span>`}
           <button class="cmdkey" onClick=${()=>setPal(true)}>
             <span>⌕</span>
             ${/* The long invitation is right on a laptop and absurd on a phone, where it
