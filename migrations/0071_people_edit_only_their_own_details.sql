@@ -10,6 +10,8 @@ security definer
 set search_path = public
 as $$
 begin
+  -- a session with nobody signed in is the SQL editor or a migration: an administrator
+  if auth.uid() is null then return new; end if;
   if not is_owner() then
     if new.role      is distinct from old.role      then raise exception 'Only an owner can change what access somebody has.'; end if;
     if new.office_id is distinct from old.office_id then raise exception 'Only an owner can move somebody to another office.'; end if;

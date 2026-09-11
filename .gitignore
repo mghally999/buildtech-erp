@@ -7,3 +7,5 @@ playwright-report/
 test-results/
 tests/out/
 *.zip
+backup/
+site/
