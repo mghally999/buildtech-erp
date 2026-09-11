@@ -1013,6 +1013,11 @@ ul.plain{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.7}
 .docbadge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.6px;padding:2px 6px;
           border-radius:3px;background:var(--info-bg);color:var(--info);margin-left:6px}
 .card-click{cursor:pointer}
+.picklist{max-height:46vh;overflow:auto;margin-top:10px;border:1px solid var(--rule);border-radius:7px}
+.pickrow{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;
+         border:none;border-bottom:1px solid var(--rule);padding:9px 12px;cursor:pointer;font:inherit;color:inherit}
+.pickrow:last-child{border-bottom:none}
+.pickrow:hover{background:var(--surface-2)}
 .card-click:hover{box-shadow:0 4px 18px rgba(0,0,0,.10)}
 @media(max-width:620px){.doc{grid-template-columns:1fr;gap:6px}.doc .acts{justify-content:flex-start}}
 
@@ -4046,7 +4051,8 @@ function Catalogue({rate,focus,clearFocus}){
   // What we actually pay Krypton, and what that implies we should sell at. Keyed by
   // pack so a 25 kg pail and a 6 kg pail each show their own figure.
   const [cost,setCost]=useState(null); const [showCost,setShowCost]=useState(false);
-  useEffect(()=>{ (async()=>{
+  const [newOpen,setNewOpen]=useState(false);
+  const load=useCallback(async()=>{
     const [{data},cp]=await Promise.all([
       sb.from('products')
         .select('*, product_packs(*), product_aliases(alias), product_documents(id)')
@@ -4057,7 +4063,8 @@ function Catalogue({rate,focus,clearFocus}){
     if(cp && !cp.error && cp.data){
       const m={}; cp.data.forEach(r=>{ m[r.pack_id]=r; }); setCost(m);
     }
-  })(); },[]);
+  },[]);
+  useEffect(()=>{load();},[load]);
   if(openProduct) return html`<${ProductPage} id=${openProduct} rate=${rate} section=${section}
       back=${()=>{setOpenProduct(null);setSection(null);}}/>`;
   if(!rows) return html`<div class="spinner"></div>`;
@@ -4078,6 +4085,8 @@ function Catalogue({rate,focus,clearFocus}){
           onClick=${()=>setShowCost(v=>!v)}
           title="What we pay Krypton, and what the standard margin says to charge">
           ${showCost?'Hide cost':'Show cost'}</button>`}
+      <button class="btn sp" onClick=${()=>setNewOpen(true)}
+        title="Add a product to the catalogue, with a pack and a price">${_t("New product")}</button>
     </div>
     ${showCost && html`<div class="note">
       Cost is catalogue RRP less the supply discount in Settings. The sell rate is that
@@ -4113,7 +4122,128 @@ function Catalogue({rate,focus,clearFocus}){
           })}
         </div>`)}
     </div>
-    ${!shown.length && html`<div class="empty">Nothing matches that search.</div>`}`;
+    ${!shown.length && html`<div class="empty">Nothing matches that search.</div>`}
+    ${newOpen && html`<${NewProductModal} cats=${cats}
+      close=${()=>setNewOpen(false)}
+      onCreated=${p=>{ setNewOpen(false); load().then(()=>setOpenProduct(p.id)); }}/>`}`;
+}
+
+/* ══════════════ CREATE A PRODUCT ══════════════
+   A product made here is a real catalogue product with a pack and a price, not a
+   free-text line, so everything downstream — costing, the take-off, the shipping request —
+   finds it. The catalogue is shared across both offices, so nothing is office-stamped. */
+function NewProductModal({close,onCreated,cats}){
+  const [f,setF]=useState({name:'',category:'',subcategory:'',
+    coverage:'',cov_unit:'kg/m2',hs_code:'',
+    pack_label:'',pack_qty:'',pack_unit:'kg',eur_total:''});
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const [busy,setBusy]=useState(false); const [err,setErr]=useState('');
+  const known=[...new Set([...(cats||[]),'flooring','waterproofing','complementary','industry'])];
+  const save=async()=>{
+    setErr('');
+    if(!f.name.trim())      return setErr('Give the product a name.');
+    if(!f.category.trim())  return setErr('Choose a category, or type a new one.');
+    const qty=num(f.pack_qty), tot=num(f.eur_total);
+    if(!(qty>0)) return setErr('Enter the pack quantity, for example 25.');
+    if(!(tot>0)) return setErr('Enter what one pack costs in euros.');
+    setBusy(true);
+    const cov=num(f.coverage);
+    // the consumption feeds the auto-costing, written the same way the catalogue writes it
+    const covText = cov>0 ? 'Approx. '+String(cov).replace('.',',')+(f.cov_unit==='g/m2'?' g/m²':' kg/m²') : null;
+    const {data:prod,error:e1}=await sb.from('products').insert({
+      category:f.category.trim(), subcategory:f.subcategory.trim()||null, name:f.name.trim(),
+      coverage_min: cov>0?cov:null, coverage_max: cov>0?cov:null,
+      coverage_unit: cov>0?f.cov_unit:null, consumption_text: covText,
+      hs_code:f.hs_code.trim()||null }).select().single();
+    if(e1){setBusy(false);setErr(e1.message);return;}
+    const pack={product_id:prod.id, label:f.pack_label.trim()||(String(num(f.pack_qty))+' '+f.pack_unit),
+      pack_qty:qty, unit:f.pack_unit, eur_total:tot, eur_per_unit:Math.round((tot/qty)*10000)/10000, is_poa:false};
+    const {data:packRow,error:e2}=await sb.from('product_packs').insert(pack).select().single();
+    setBusy(false);
+    if(e2){setErr('The product was saved but its pack was not: '+e2.message);return;}
+    // hand back a product shaped like the catalogue loads them, so the caller can cost it
+    onCreated&&onCreated({...prod, product_packs:[packRow], product_aliases:[]});
+    close();
+  };
+  return html`
+    <div class="modal-bg" onClick=${e=>e.target===e.currentTarget&&close()}>
+      <div class="modal"><div class="modal-head"><h2>${_t("New product")}</h2></div>
+      <div class="modal-body">
+        ${err && html`<div class="err">${err}</div>`}
+        <div class="field"><label>${_t("Name")}</label>
+          <input type="text" value=${f.name} onInput=${e=>set('name',e.target.value)}
+            placeholder="e.g. BT-Crete SL"/></div>
+        <div class="grid2">
+          <div class="field"><label>${_t("Category")}</label>
+            <input type="text" list="np-cats" value=${f.category} onInput=${e=>set('category',e.target.value)}
+              placeholder="flooring, waterproofing…"/>
+            <datalist id="np-cats">${known.map(c=>html`<option key=${c} value=${c}></option>`)}</datalist></div>
+          <div class="field"><label>${_t("Subcategory, optional")}</label>
+            <input type="text" value=${f.subcategory} onInput=${e=>set('subcategory',e.target.value)}/></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>${_t("Consumption, optional")}</label>
+            <input type="number" step="0.01" value=${f.coverage} onInput=${e=>set('coverage',e.target.value)}
+              placeholder="e.g. 2.5"/></div>
+          <div class="field"><label>${_t("Per")}</label>
+            <select value=${f.cov_unit} onChange=${e=>set('cov_unit',e.target.value)}>
+              <option value="kg/m2">kg / m²</option><option value="g/m2">g / m²</option></select></div>
+        </div>
+        <div class="panel-head" style=${{padding:'4px 0'}}><h2 style=${{fontSize:'13px'}}>${_t("One pack")}</h2></div>
+        <div class="grid2">
+          <div class="field"><label>${_t("Pack label")}</label>
+            <input type="text" value=${f.pack_label} onInput=${e=>set('pack_label',e.target.value)}
+              placeholder="e.g. 25 kg"/></div>
+          <div class="field"><label>${_t("Pack unit")}</label>
+            <input type="text" value=${f.pack_unit} onInput=${e=>set('pack_unit',e.target.value)}
+              placeholder="kg, L, m²"/></div>
+          <div class="field"><label>${_t("Pack quantity")}</label>
+            <input type="number" step="0.01" value=${f.pack_qty} onInput=${e=>set('pack_qty',e.target.value)}
+              placeholder="e.g. 25"/></div>
+          <div class="field"><label>${_t("Pack price (EUR)")}</label>
+            <input type="number" step="0.01" value=${f.eur_total} onInput=${e=>set('eur_total',e.target.value)}
+              placeholder="Krypton list, one pack"/></div>
+        </div>
+        <div class="field"><label>${_t("HS code, optional")}</label>
+          <input type="text" value=${f.hs_code} onInput=${e=>set('hs_code',e.target.value)}
+            placeholder="e.g. 3214.90"/></div>
+        <p class="muted">The per-unit price is worked out from the pack. Add more packs, aliases and data sheets on the product's page afterwards.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn sec" onClick=${close}>${_t("Cancel")}</button>
+        <button class="btn" onClick=${save} disabled=${busy}>${busy?_t('Saving…'):_t('Create product')}</button>
+      </div></div></div>`;
+}
+
+/* Add a product to a section without typing its catalogue name and consumption from
+   memory. Search, pick, and the bold specification line is written with the consumption
+   already on it, ready to overtype. Or make a new product on the spot. */
+function ProductPicker({products,cats,onPick,close}){
+  const [term,setTerm]=useState(''); const [creating,setCreating]=useState(false);
+  const t=term.trim().toLowerCase();
+  const shown=(products||[]).filter(p=>!t ||
+     [p.name,p.subcategory,p.category,...(p.product_aliases||[]).map(a=>a.alias)]
+       .some(x=>(x||'').toLowerCase().includes(t))).slice(0,80);
+  return html`
+    <div class="modal-bg" onClick=${e=>e.target===e.currentTarget&&close()}>
+      <div class="modal"><div class="modal-head"><h2>${_t("Add a product")}</h2></div>
+      <div class="modal-body">
+        <input type="text" autoFocus placeholder="${_t("Search the catalogue…")}" value=${term}
+          onInput=${e=>setTerm(e.target.value)}/>
+        <div class="picklist">
+          ${shown.map(p=>html`<button class="pickrow" key=${p.id} onClick=${()=>onPick(p,false)}>
+            <span><b>${p.name}</b>${p.subcategory?html`<span class="muted"> · ${p.subcategory}</span>`:''}</span>
+            <span class="muted">${p.consumption_text||'—'}</span></button>`)}
+          ${!shown.length && html`<div class="empty">Nothing matches. Create it below.</div>`}
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn sec" onClick=${()=>setCreating(true)}>${_t("Create new product")}</button>
+        <button class="btn sec" onClick=${close}>${_t("Cancel")}</button>
+      </div></div>
+      ${creating && html`<${NewProductModal} cats=${cats}
+        close=${()=>setCreating(false)} onCreated=${p=>{setCreating(false);onPick(p,true);}}/>`}
+    </div>`;
 }
 
 /* ══════════════ PROJECTS ══════════════ */
@@ -10889,6 +11019,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
   // The full catalogue with packs, and the transport classification, both needed to
   // turn this quotation into something a freight forwarder can price.
   const [cat,setCat]=useState([]); const [trans,setTrans]=useState({});
+  const [picker,setPicker]=useState(null);   // the section index whose product picker is open
   const [shipOpen,setShipOpen]=useState(false);
   const set=(k,v)=>setQ(p=>({...p,[k]:v}));
   const cfg=k=>settings.find(s=>s.key===k)?.value||'';
@@ -11186,6 +11317,15 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
     })}));
   };
   const delLine=(i,j)=>setSecs(a=>a.map((s,n)=>n!==i?s:{...s,lines:s.lines.filter((_,m)=>m!==j)}));
+  /* A product chosen from the picker becomes a bold specification line with its consumption
+     already on it — the same shape the auto-costing reads, so the section prices itself. */
+  const addProduct=(i,prod)=>{
+    const cov=coverageOf(prod);
+    const desc=prod.name+(cov?' : Approx. '+String(round2(cov.kg)).replace('.',',')+' kg/m².':'.');
+    setSecs(a=>a.map((s,n)=>n!==i?s:{...s,lines:[...s.lines,
+      {id:'l'+Date.now()+Math.random(),description:desc,unit:'',quantity:'',sell_rate:'',cost_rate:'',
+       is_spec_note:true,is_bold:true,is_costing:false,is_provisional:false,position:s.lines.length+1}]}));
+  };
 
   /* What the client is charged, and what it costs us, are two different sets of lines.
      A build-up line is priced for our eyes: its cost is real and counts, its amount is
@@ -11556,6 +11696,10 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
       </div>
     </div>
     ${msg && html`<div class=${msg.startsWith('Error')?'err':'ok'}>${msg}</div>`}
+    ${picker!=null && html`<${ProductPicker} products=${cat}
+      cats=${[...new Set((cat||[]).map(p=>p.category).filter(Boolean))]}
+      onPick=${(p,isNew)=>{ if(isNew) setCat(c=>[...c,p]); addProduct(picker,p); setPicker(null); }}
+      close=${()=>setPicker(null)}/>`}
     ${restored && html`<div class="flagbox">${restored}
       <button class="btn sec sm" style=${{marginLeft:'10px'}}
         onClick=${()=>{ dropDraft(); setRestored(''); window.location.reload(); }}
@@ -11795,6 +11939,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
                 +' per '+(l.unit||'unit')}</div>`;})()}
           </div>`)}
         <div style=${{padding:'9px 12px',display:'flex',gap:'8px',borderTop:'1px solid var(--rule)'}}>
+          <button class="btn sec sm" onClick=${()=>setPicker(i)}
+            title="Pick a product from the catalogue, or make a new one, and its line is written for you">${_t("Add product")}</button>
           <button class="btn sec sm" onClick=${()=>addLine(i,false)}>${_t("Add priced line")}</button>
           <button class="btn sec sm" onClick=${()=>addLine(i,true)}>${_t("Add spec note")}</button>
           <button class="btn sec sm" title="An empty line, for spacing on the printed sheet"

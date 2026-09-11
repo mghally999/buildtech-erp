@@ -414,6 +414,77 @@ checks.order_from_request = async page => {
   }
 };
 
+// Phase 5 E (F-072): a product can be created from the catalogue, with a pack and a price.
+checks.new_product = async page => {
+  await login(page); await go(page, 'Catalogue');
+  await page.click('button:has-text("New product")'); await settle(600);
+  const field = l => page.locator(`.modal .field:has(> label:has-text("${l}")) input`).first();
+  await field('Name').fill('ZZTEST New Product');
+  await field('Category').fill('flooring');
+  await field('Consumption').fill('2.5');
+  await field('Pack label').fill('25 kg');
+  await field('Pack quantity').fill('25');
+  await field('Pack price').fill('100');
+  await page.click('.modal button:has-text("Create product")');
+  try {
+    await page.waitForSelector('.pp-title', { timeout: 15000 }); await settle(500);
+    const title = await page.locator('.pp-title').textContent();
+    assert(/ZZTEST New Product/.test(title), `the new product page opens (saw "${title}")`);
+    const [prod] = await sql("select id, category, consumption_text from products where name='ZZTEST New Product'");
+    assert(prod && prod.category === 'flooring', 'the product is saved with its category');
+    assert(prod && /2,5/.test(prod.consumption_text || ''), `the consumption is stored (saw "${prod && prod.consumption_text}")`);
+    const [pk] = await sql(`select pack_qty, eur_total, eur_per_unit, unit from product_packs where product_id='${prod.id}'`);
+    assert(pk && Number(pk.pack_qty) === 25 && Number(pk.eur_total) === 100 && Number(pk.eur_per_unit) === 4,
+      `a pack is saved with the per-unit price worked out (saw ${JSON.stringify(pk)})`);
+  } finally {
+    await sql("delete from product_packs where product_id in (select id from products where name like 'ZZTEST%')");
+    await sql("delete from products where name like 'ZZTEST%'");
+  }
+};
+
+// Phase 5 E + friction H-01: the section picker adds an existing product, and creates a new one.
+checks.add_product_editor = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [prod] = await sql("select name from products where coverage_max is not null and is_active order by name limit 1");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-PICK', 4.27, '${dxb.id}', 'ZZTEST pick') returning id`);
+  await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Roof')`);
+  const specValues = () => page.evaluate(() => [...document.querySelectorAll('.lrow.note textarea')].map(x => x.value));
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Quotations');
+    await page.locator('tr', { hasText: 'ZZTEST-Q-PICK' }).locator('td').first().click();
+    await page.waitForSelector('button:has-text("Add product")', { timeout: 15000 }); await settle(800);
+    // pick an existing product
+    await page.click('button:has-text("Add product")'); await settle(500);
+    await page.fill('.modal input', prod.name.slice(0, 6));
+    await page.click('.pickrow'); await settle(600);
+    let specs = await specValues();
+    assert(specs.some(v => v.includes(prod.name) && /Approx\./.test(v)),
+      `picking a product writes a bold spec line with its consumption (saw ${JSON.stringify(specs)})`);
+    // create a brand-new product from inside the picker and have it land on the section
+    await page.click('button:has-text("Add product")'); await settle(500);
+    await page.click('.modal button:has-text("Create new product")'); await settle(500);
+    const field = l => page.locator(`.modal .field:has(> label:has-text("${l}")) input`).first();
+    await field('Name').fill('ZZTEST Editor Product');
+    await field('Category').fill('flooring');
+    await field('Consumption').fill('1.5');
+    await field('Pack label').fill('20 kg');
+    await field('Pack quantity').fill('20');
+    await field('Pack price').fill('80');
+    await page.click('.modal button:has-text("Create product")'); await settle(1500);
+    specs = await specValues();
+    assert(specs.some(v => v.includes('ZZTEST Editor Product') && /1,5/.test(v)),
+      `a product created in the picker is added to the section (saw ${JSON.stringify(specs)})`);
+    // and it is a real catalogue product now
+    const made = await sql("select id from products where name='ZZTEST Editor Product'");
+    assert(made.length === 1, 'the created product is in the catalogue');
+  } finally {
+    await sql(`delete from quotations where id='${q.id}'`);
+    await sql("delete from product_packs where product_id in (select id from products where name like 'ZZTEST%')");
+    await sql("delete from products where name like 'ZZTEST%'");
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
