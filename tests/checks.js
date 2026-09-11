@@ -485,6 +485,43 @@ checks.add_product_editor = async page => {
   }
 };
 
+// Phase 5 F (Charles item 1): a product missing a TDS or SDS is flagged everywhere; nothing is blocked.
+checks.missing_sheets = async page => {
+  await sql("delete from product_documents where product_id in (select id from products where name like $q$ZZTEST%$q$)");
+  await sql("delete from products where name like $q$ZZTEST%$q$");
+  const cat = (await sql("select category from products limit 1"))[0].category;
+  const [bare] = await sql(`insert into products (category, name) values ('${cat}', 'ZZTEST No Docs') returning id`);
+  const [full] = await sql(`insert into products (category, name) values ('${cat}', 'ZZTEST Full Docs') returning id`);
+  const src = "'https://example.com/zztest'";
+  await sql(`insert into product_documents (product_id, doc_type, title, external_url) values
+    ('${full.id}', 'tds', 'ZZTEST TDS', ${src}), ('${full.id}', 'sds', 'ZZTEST SDS', ${src})`);
+  // 'ZZTEST No Docs' is left with no documents at all
+  const cardMiss = name => page.locator(`.prod:has(h3:has-text("${name}")) .docbadge.miss`);
+  try {
+    await login(page); await go(page, 'Catalogue');
+    await page.fill('input[placeholder^="Search"]', 'ZZTEST'); await settle(600);
+    assert(await cardMiss('ZZTEST No Docs').count() === 1, 'a product with no sheets is flagged on the grid');
+    assert((await cardMiss('ZZTEST No Docs').textContent()) === 'No TDS or SDS', 'and the flag names both as missing');
+    assert((await cardMiss('ZZTEST Full Docs').count()) === 0, 'a product with both sheets is not flagged');
+    assert(await page.locator(`.prod:has(h3:has-text("ZZTEST No Docs"))`).count() === 1, 'the bare product is listed');
+    // the filter keeps only the incomplete ones
+    await page.click('button:has-text("Missing sheets")'); await settle(600);
+    assert(await page.locator('.prod:has(h3:has-text("ZZTEST No Docs"))').count() === 1, 'the missing filter keeps the incomplete product');
+    assert(await page.locator('.prod:has(h3:has-text("ZZTEST Full Docs"))').count() === 0, 'the missing filter drops the complete product');
+    // the product page header flag
+    await page.click('.prod:has(h3:has-text("ZZTEST No Docs"))'); await settle(800);
+    const pill = await page.locator('.pp-head .pill').textContent().catch(() => '');
+    assert(/No technical or safety data sheet/.test(pill), `the product page flags the missing sheets (saw "${pill}")`);
+    // the home queue row
+    await go(page, 'Operations'); await settle(1500);
+    const queue = (await page.locator('.queue').first().textContent()).replace(/\s+/g, ' ');
+    assert(/missing a data sheet/.test(queue), `the home queue carries a missing-sheet row (saw "${queue.slice(0, 120)}")`);
+  } finally {
+    await sql("delete from product_documents where product_id in (select id from products where name like 'ZZTEST%')");
+    await sql("delete from products where name like 'ZZTEST%'");
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();

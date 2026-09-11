@@ -1012,6 +1012,7 @@ ul.plain{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.7}
 .drop.over{border-color:var(--brand);background:var(--accent-soft,var(--surface-2))}
 .docbadge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.6px;padding:2px 6px;
           border-radius:3px;background:var(--info-bg);color:var(--info);margin-left:6px}
+.docbadge.miss{background:var(--crit-bg);color:var(--crit)}
 .card-click{cursor:pointer}
 .picklist{max-height:46vh;overflow:auto;margin-top:10px;border:1px solid var(--rule);border-radius:7px}
 .pickrow{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;
@@ -3079,23 +3080,24 @@ function Operations({go,settings}){
 
   useEffect(()=>{(async()=>{
     const q=(t,s)=>sb.from(t).select(s||'*');
-    const [inq,pj,pt,iv,pay,cp,ex,ap,sp,sh,po,pot,cm,dw,vf,rw,al]=await Promise.all([
+    const [inq,pj,pt,iv,pay,cp,ex,ap,sp,sh,po,pot,cm,dw,vf,rw,pd,al]=await Promise.all([
       q('inquiries','*, clients(name)'), q('projects','id,name,status,value'),
       q('project_totals'), q('invoice_totals'), invoicePayments('paid_on,amount'),
       q('cash_position'), q('expenses'), q('approval_watch'), q('stock_position'),
       q('shipments','id,status,eta'), q('open_order_lines'), q('purchase_order_totals'),
       q('commitments'), q('document_watch'), q('visit_funnel'), q('requirement_watch'),
+      q('products','id,is_active,product_documents(doc_type)'),
       sb.from('activity_log').select('*').order('happened_at',{ascending:false}).limit(6),
     ]);
     // Every one of these feeds a number on this screen, so a failure on any of them has
     // to be said, or a vital quietly reads zero and nobody knows to doubt it.
-    const e=[inq,pj,pt,iv,pay,cp,ex,ap,sp,sh,po,pot,cm,dw,vf,rw,al].map(x=>x&&x.error).find(Boolean);
+    const e=[inq,pj,pt,iv,pay,cp,ex,ap,sp,sh,po,pot,cm,dw,vf,rw,pd,al].map(x=>x&&x.error).find(Boolean);
     if(e) setErr('Part of this screen could not be loaded: '+e.message);
     setLog(al.data||[]);
     setD({inq:inq.data||[],pj:pj.data||[],pt:pt.data||[],iv:iv.data||[],pay:pay.data||[],
           cp:cp.data||[],ex:ex.data||[],ap:ap.data||[],sp:sp.data||[],sh:sh.data||[],
           po:po.data||[],pot:pot.data||[],cm:cm.data||[],dw:dw.data||[],vf:vf.data||[],
-          rw:rw.data||[]});
+          rw:rw.data||[],pd:pd.data||[]});
   })();},[]);
 
   if(!d) return html`${err&&html`<div class="err">${err}</div>`}<div class="spinner"></div>`;
@@ -3203,6 +3205,12 @@ function Operations({go,settings}){
   const unpaid=d.ex.filter(x=>!x.paid_on&&x.kind==='expense');
   if(unpaid.length) push('lo',unpaid.length+' '+plural(unpaid.length,'bill')+' not yet paid',
     AED0(unpaid.reduce((s,x)=>s+nz(x.amount_aed),0))+' owed out',['finance']);
+
+  // Charles's rule: every product should carry a technical and a safety data sheet.
+  const noSheet=(d.pd||[]).filter(p=>p.is_active).filter(p=>{
+    const t=p.product_documents||[]; return !(t.some(x=>x.doc_type==='tds')&&t.some(x=>x.doc_type==='sds')); });
+  if(noSheet.length) push('md',noSheet.length+' '+plural(noSheet.length,'product')+' missing a data sheet',
+    'Every product should carry a technical and a safety data sheet from the supplier',['catalogue','missing-sheets']);
 
   const rank={hi:0,md:1,lo:2};
   Q.sort((a,b)=>rank[a.sev]-rank[b.sev]);
@@ -4042,20 +4050,24 @@ function ClientModal({row,close,saved}){
 function Catalogue({rate,focus,clearFocus}){
   const [rows,setRows]=useState(null); const [q,setQ]=useState(''); const [cat,setCat]=useState('all');
   const [openProduct,setOpenProduct]=useState(null);
+  const [miss,setMiss]=useState(false);   // show only products missing a data sheet
   // the queue can name a part of the product page as well as the product itself
   const [section,setSection]=useState(null);
-  useEffect(()=>{ if(focus){
+  useEffect(()=>{ if(!focus) return;
+    // the home queue can send us straight to the products with a missing data sheet
+    if(focus==='missing-sheets'){ setMiss(true); clearFocus&&clearFocus(); return; }
     const [pid,part]=String(focus).split('#');
     setOpenProduct(pid); setSection(part||null); clearFocus&&clearFocus();
-  } },[focus]);
+  },[focus]);
   // What we actually pay Krypton, and what that implies we should sell at. Keyed by
   // pack so a 25 kg pail and a 6 kg pail each show their own figure.
   const [cost,setCost]=useState(null); const [showCost,setShowCost]=useState(false);
   const [newOpen,setNewOpen]=useState(false);
   const load=useCallback(async()=>{
     const [{data},cp]=await Promise.all([
+      // doc_type comes too, so a product missing its technical or safety data sheet can be flagged
       sb.from('products')
-        .select('*, product_packs(*), product_aliases(alias), product_documents(id)')
+        .select('*, product_packs(*), product_aliases(alias), product_documents(id,doc_type)')
         .order('category').order('name'),
       sb.from('catalogue_pricing').select('*')
     ]);
@@ -4070,7 +4082,11 @@ function Catalogue({rate,focus,clearFocus}){
   if(!rows) return html`<div class="spinner"></div>`;
   const cats=[...new Set(rows.map(r=>r.category))].sort();
   const t=q.trim().toLowerCase();
-  const shown=rows.filter(r=>(cat==='all'||r.category===cat) && (!t ||
+  // Charles's rule: every product should carry both a technical and a safety data sheet.
+  const docsMissing=p=>{ const d=p.product_documents||[];
+    const tds=d.some(x=>x.doc_type==='tds'), sds=d.some(x=>x.doc_type==='sds');
+    return (tds&&sds) ? '' : (!tds&&!sds ? 'No TDS or SDS' : !tds ? 'No TDS' : 'No SDS'); };
+  const shown=rows.filter(r=>(cat==='all'||r.category===cat) && (!miss || docsMissing(r)) && (!t ||
     [r.name,r.subcategory,r.description,r.application,...(r.product_aliases||[]).map(a=>a.alias)]
       .some(x=>(x||'').toLowerCase().includes(t))));
   return html`
@@ -4081,6 +4097,8 @@ function Catalogue({rate,focus,clearFocus}){
         ${cats.map(c=>html`<option key=${c} value=${c}>${c[0].toUpperCase()+c.slice(1)}</option>`)}
       </select>
       <input type="text" style=${{width:'220px'}} placeholder="${_t("Search products\u2026")}" value=${q} onInput=${e=>setQ(e.target.value)}/>
+      <button class=${'btn '+(miss?'':'ghost')} onClick=${()=>setMiss(v=>!v)}
+        title="Show only products missing a technical or safety data sheet">${_t("Missing sheets")}</button>
       ${cost && html`<button class=${'btn '+(showCost?'':'ghost')}
           onClick=${()=>setShowCost(v=>!v)}
           title="What we pay Krypton, and what the standard margin says to charge">
@@ -4100,7 +4118,7 @@ function Catalogue({rate,focus,clearFocus}){
              onKeyDown=${e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setOpenProduct(p.id);}}}>
           <h3>${p.name}${p.product_documents?.length
             ? html`<span class="docbadge">${p.product_documents.length} doc${p.product_documents.length>1?'s':''}</span>`
-            : ''}</h3>
+            : ''}${docsMissing(p) ? html`<span class="docbadge miss" title="Get these from the supplier">${docsMissing(p)}</span>` : ''}</h3>
           <div class="sub">${p.subcategory||p.category}</div>
           <div class="d">${p.description}</div>
           <div class="rate">Coverage: <b>${p.consumption_text||'—'}</b></div>
@@ -5073,10 +5091,15 @@ function ProductPage({id,rate,back,section}){
   const [p,setP]=useState(null);
   const [err,setErr]=useState(''); const [msg,setMsg]=useState(''); const [busy,setBusy]=useState(false);
   const set=(k,v)=>setP(x=>({...x,[k]:v}));
+  // recount the data sheets when one is added or removed below, so the header flag is live
+  const reloadDocs=useCallback(async()=>{
+    const {data}=await sb.from('product_documents').select('doc_type').eq('product_id',id);
+    setP(x=>x?{...x,product_documents:data||[]}:x);
+  },[id]);
 
   useEffect(()=>{(async()=>{
     const {data,error}=await sb.from('products')
-      .select('*, product_packs(*), product_aliases(alias)').eq('id',id).single();
+      .select('*, product_packs(*), product_aliases(alias), product_documents(doc_type)').eq('id',id).single();
     if(error) setErr(error.message);
     setP(data);
   })();},[id]);
@@ -5107,6 +5130,13 @@ function ProductPage({id,rate,back,section}){
         <div class="pp-sub">${p.subcategory||p.category}</div>
         <h1 class="pp-title">${p.name}</h1>
       </div>
+      ${(()=>{ const d=p.product_documents||[];
+        const tds=d.some(x=>x.doc_type==='tds'), sds=d.some(x=>x.doc_type==='sds');
+        if(tds&&sds) return '';
+        const what = !tds&&!sds ? 'No technical or safety data sheet' : !tds ? 'No technical data sheet' : 'No safety data sheet';
+        return html`<span class="pill quiet" title="Every product should carry a TDS and an SDS from the supplier"
+          style=${{alignSelf:'center'}}>${what}</span>`;
+      })()}
     </div>
     ${err && html`<div class="err">${err}</div>`}
 
@@ -5178,7 +5208,8 @@ function ProductPage({id,rate,back,section}){
     </div>
 
     <${DocumentsPanel} table="product_documents" bucket="product-docs"
-       fk="product_id" id=${id} types=${DOC_TYPES} heading="Documents" scrollTo=${section==='documents'}/>`;
+       fk="product_id" id=${id} types=${DOC_TYPES} heading="Documents" scrollTo=${section==='documents'}
+       onChange=${reloadDocs}/>`;
 }
 
 
@@ -8161,19 +8192,23 @@ function ShippingRequest({q, secs, cat, trans, settings, client, onOrder}){
   const cfgNum=(k,d)=>settingNumber(settings.find(s=>s.key===k)?.value, d);
   const c = useMemo(()=>cargoFromQuotation(secs, cat, cfgNum), [secs, cat, settings]);
   const [sdsFiles,setSdsFiles]=useState([]);
+  const [docPair,setDocPair]=useState({});   // product_id -> {tds,sds}, for the missing-sheet flag
   const [packBusy,setPackBusy]=useState(''); const [packErr,setPackErr]=useState('');
 
-  // the actual safety data sheets for the products on this cargo, so the pack can carry
-  // them rather than telling the forwarder to go and find them
+  // the safety data sheets for the products on this cargo, so the pack can carry them
+  // rather than telling the forwarder to go and find them; the technical sheets are counted
+  // too, so a product missing either can be flagged before the request goes out
   const cargoIds = c.rows.map(r=>r.product.id).join(',');
   useEffect(()=>{(async()=>{
     const ids=c.rows.map(r=>r.product.id);
-    if(!ids.length){ setSdsFiles([]); return; }
+    if(!ids.length){ setSdsFiles([]); setDocPair({}); return; }
     const {data}=await sb.from('product_documents')
-      .select('*, products(name)').in('product_id',ids).eq('doc_type','sds');
-    setSdsFiles((data||[]).map(x=>({
+      .select('*, products(name)').in('product_id',ids).in('doc_type',['tds','sds']);
+    setSdsFiles((data||[]).filter(x=>x.doc_type==='sds').map(x=>({
       id:x.id, label:(x.products?.name?x.products.name+' - ':'')+x.title,
       storage_path:x.storage_path, external_url:x.external_url })));
+    const pair={}; (data||[]).forEach(x=>{ (pair[x.product_id]=pair[x.product_id]||{})[x.doc_type]=true; });
+    setDocPair(pair);
   })();},[cargoIds]);
   const n = (v,d=0)=>Number(v||0).toLocaleString('en-AE',
               {minimumFractionDigits:d,maximumFractionDigits:d});
@@ -8312,6 +8347,13 @@ function ShippingRequest({q, secs, cat, trans, settings, client, onOrder}){
       Nobody has read a data sheet for ${unknown.length>1?'them':'it'}, which is not the same as
       it being safe. A forwarder cannot be firm without it.</div>`}
 
+    ${(()=>{ const missing=c.rows.filter(r=>{const pr=docPair[r.product.id]||{}; return !(pr.tds&&pr.sds);});
+      if(!missing.length) return '';
+      return html`<div class="warnbar" style=${{marginTop:'14px'}}>
+        ${missing.length} ${plural(missing.length,'product')} on this consignment ${missing.length===1?'is':'are'} missing a
+        technical or safety data sheet: ${missing.map(r=>r.product.name).join(', ')}. Get them from the supplier
+        and upload each against its product in the Catalogue.</div>`;
+    })()}
     <h3 style=${{marginTop:'18px'}}>Documents for the folder</h3>
     ${haveSds.length>0 && html`<${Frag}>
       <p class="muted">In the catalogue, ready to send:</p>
