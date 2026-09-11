@@ -850,9 +850,9 @@ ul.tight li{font-size:13px;line-height:1.6;color:var(--ink-2)}
 .xbtn.tag{width:auto;min-width:44px;padding:0 7px;font-size:11px;font-weight:700;
           font-family:var(--fd);letter-spacing:.03em}
 /* purchase order lines */
-.polrow{display:grid;grid-template-columns:minmax(150px,1fr) 84px 62px 78px 62px 82px 62px 78px 74px 92px 62px;gap:8px;
+.polrow{display:grid;grid-template-columns:minmax(150px,1fr) 96px 62px 62px 72px 110px 62px 80px 96px 62px;gap:8px;
         padding:8px 12px;border-top:1px solid var(--rule);align-items:center}
-.polhead{display:grid;grid-template-columns:minmax(150px,1fr) 84px 62px 78px 62px 82px 62px 78px 74px 92px 62px;gap:8px;
+.polhead{display:grid;grid-template-columns:minmax(150px,1fr) 96px 62px 62px 72px 110px 62px 80px 96px 62px;gap:8px;
          padding:7px 12px;background:var(--surface-2)}
 .polhead span{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-3);font-weight:700}
 .polhead span.r{text-align:right}
@@ -5731,6 +5731,19 @@ function CorrespondencePanel({clientId,quotationId,poId,heading}){
     </div>`;
 }
 
+/* How much material one pack carries, read the way Krypton names their packs: "12 kg pail"
+   is twelve kilos a pail, and ten of them is 120 kg without anybody working it out.
+   Anything the label does not say stays at nothing and is typed. The new-order form and
+   the order page both read packs through this, so a pack means the same on both. */
+const packSize = txt => {
+  const m = String(txt||'').match(/(\d+(?:[.,]\d+)?)\s*(kg|kgs|l|ltr|litres?|m²|m2)\b/i);
+  if(!m) return { qty:0, unit:'' };
+  return { qty:Number(String(m[1]).replace(',','.')),
+           unit:/m²|m2/i.test(m[2]) ? 'm²' : 'kg' };
+};
+// a line measured in kilos, which is how nearly everything Krypton sells is weighed
+const lineInKg = l => !l.unit || /^\s*kgs?\s*$/i.test(l.unit);
+
 /* ══════════════ PURCHASE ORDERS ══════════════
    The buy side. Before this the chain ran quotation, project, materials needed, and then
    stopped: a shipment appeared later with no link to what was ordered, and stock after
@@ -5951,16 +5964,6 @@ function NewOrderModal({quotes,projects,whs,rate,close,saved,seed}){
                            return packSize(l.packLabel).unit || l.unit || 'kg'; };
   const labelOf   = l => { const k=packOf(l);
                            return k ? (k.label||'') : (l.packLabel!=null?l.packLabel:''); };
-  /* How much material one pack carries. A catalogue pack says so. A typed line does not,
-     but Krypton names their packs the way they mean them, so "12 kg pail" is twelve kilos
-     a pail and ten of them is 120 kg without anybody working it out. Anything the label
-     does not say stays at nothing and is typed. */
-  const packSize = txt => {
-    const m = String(txt||'').match(/(\d+(?:[.,]\d+)?)\s*(kg|kgs|l|ltr|litres?|m²|m2)\b/i);
-    if(!m) return { qty:0, unit:'' };
-    return { qty:Number(String(m[1]).replace(',','.')),
-             unit:/m²|m2/i.test(m[2]) ? 'm²' : 'kg' };
-  };
   const perPackOf = l => { const k=packOf(l);
                            return k ? packQty(k) : packSize(l.packLabel).qty; };
   const supDef    = l => perPackOf(l) * nz(l.packs);
@@ -6380,7 +6383,9 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
     // have, the whole query was refused, and the refusal was thrown away: every order
     // opened with nothing on it and said so with a straight face.
     const e=po.error||ln.error; if(e) setErr(e.message);
-    setO(po.data); setLines(ln.data||[]);
+    // a line in kilos whose weight was never filled in weighs what it orders
+    setO(po.data); setLines((ln.data||[]).map(l => lineInKg(l) && (l.weight_kg==null||l.weight_kg==='')
+      && nz(l.qty_ordered)>0 ? {...l, weight_kg:l.qty_ordered} : l));
     // the catalogue, so a name on a supplier's proforma can be matched to our product and
     // receiving still moves the right stock
     const pr=await sb.from('products').select('id,name');
@@ -6407,23 +6412,63 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
   const fmtMoney = (v,cur) => toView(v).toLocaleString('en',
     {minimumFractionDigits:2, maximumFractionDigits:2});
 
-  /* Krypton quotes a list price and a discount. What we actually pay, and therefore what
-     the line is worth, is the two multiplied out, so changing either keeps unit_price in
-     step rather than leaving three numbers that disagree. */
-  /* Krypton lists a price per PACK. We pay for it per kilo, because that is how the
-     warehouse and every cost in this system are measured. One pack holds qty_ordered
-     divided by packs of whatever the line is measured in, so the two convert exactly and
-     changing either the list or the discount keeps them in step. */
-  const perPack = l => { const k = nz(l.packs); return k > 0 ? nz(l.qty_ordered)/k : 0; };
-  const netOfList = (l, list, disc) => { const per = perPack(l);
-    const net = nz(list) * (1 - nz(disc)/100);
-    return per > 0 ? Math.round(net/per * 10000)/10000 : Math.round(net*10000)/10000; };
-  const setListPrice = (i,v) => setLines(a=>a.map((x,n)=>n!==i?x:
-    ({...x, list_price:v, unit_price: netOfList(x, v, x.discount_pct)})));
-  const setDiscount  = (i,v) => setLines(a=>a.map((x,n)=>n!==i?x:
-    ({...x, discount_pct:v,
-      unit_price: x.list_price!=null && x.list_price!=='' ? netOfList(x, x.list_price, v)
-                                                          : x.unit_price})));
+  /* Krypton gives us a price per kilo, in euros, and a discount, and that is what is typed
+     here. The database still keeps their list price per PACK, as their proforma prints it,
+     and what we pay per unit of the line, so the printed order, receiving and every total
+     read the same numbers they always did. This works both out from the price per kilo.
+
+       quantity    a line in kilos is its weight; a roll or a tin is its packs times what
+                   one pack holds
+       per unit    what was typed, or worked back from the list price that was saved
+       unit price  per unit, less the discount
+       list price  per unit, times what one pack holds
+
+     The price per unit and the pack size are pinned on a line the first time it is edited,
+     so changing the packs or the weight moves the money and never the price. */
+  const r4 = v => Math.round(nz(v)*10000)/10000;
+  // what one pack holds, in the line's own unit: its label or its name says so ("25 kg",
+  // "PE 100 BT COMP.A 10KG"), otherwise the line as it was saved
+  const holdsOf = l => { const k=nz(l.packs), q=nz(l.qty_ordered);
+    if(!lineInKg(l) && k>0 && q>0) return q/k;
+    return packSize(l.pack_label).qty || packSize(l.description).qty || (k>0 && q>0 ? q/k : 0); };
+  const perUnitOf = l => {
+    if(l._perUnit!=null) return l._perUnit;
+    if(l.list_price!=null && l.list_price!==''){
+      const k=nz(l.packs), q=nz(l.qty_ordered);
+      const per = k>0 && q>0 ? q/k : holdsOf(l);
+      return per>0 ? r4(nz(l.list_price)/per) : r4(l.list_price);
+    }
+    const d=nz(l.discount_pct);
+    return nz(l.unit_price)>0 && d<100 ? r4(nz(l.unit_price)/(1-d/100)) : '';
+  };
+  const settleLine = l => {
+    const size = l._holds!=null ? l._holds : holdsOf(l);
+    const qty  = lineInKg(l) ? nz(l.weight_kg) : (nz(l.packs)*size || nz(l.qty_ordered));
+    const per  = nz(l.packs)>0 ? qty/nz(l.packs) : 0;
+    const p    = perUnitOf(l);
+    if(p===''||p==null) return {...l, qty_ordered:r4(qty),
+      ...(l._perUnit==='' ? {unit_price:0, list_price:null} : {})};
+    return {...l, qty_ordered:r4(qty),
+      unit_price: r4(nz(p)*(1-nz(l.discount_pct)/100)),
+      list_price: per>0 ? r4(nz(p)*per) : r4(p)};
+  };
+  const editLine = (i,patch) => setLines(a=>a.map((x,n)=>{
+    if(n!==i) return x;
+    const next = {...x,
+      _perUnit: x._perUnit!=null ? x._perUnit : perUnitOf(x),
+      _holds:   x._holds!=null   ? x._holds   : holdsOf(x),
+      ...patch};
+    // a name that says its pack ("... 10KG") gives a line that had no pack size one
+    if('description' in patch && !nz(next._holds)) next._holds = holdsOf({...next, qty_ordered:0});
+    // A line in kilos follows its packs while nobody has typed a weight of their own:
+    // twelve 10 kg kits is 120 kg without anybody working it out.
+    if('packs' in patch && lineInKg(x) && nz(next._holds)>0){
+      const was = nz(x.packs)*nz(next._holds);
+      if(!nz(x.weight_kg) || Math.abs(nz(x.weight_kg)-was)<0.001)
+        next.weight_kg = r4(nz(patch.packs)*nz(next._holds));
+    }
+    return settleLine(next);
+  }));
   const outstanding=lines.filter(l=>nz(l.qty_ordered)-nz(l.qty_received)>0.001);
   const pct=lines.length? lines.reduce((s,l)=>s+nz(l.qty_received),0)
                         / Math.max(lines.reduce((s,l)=>s+nz(l.qty_ordered),0),0.0001)*100 : 0;
@@ -6433,12 +6478,17 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
      database writes who took each step and when, and refuses the steps out of order. */
   const moveTo=async st=>{
     setErr(''); setMsg('');
-    const {error}=await sb.from('purchase_orders').update({status:st}).eq('id',id);
+    const {data,error}=await sb.from('purchase_orders').update({status:st}).eq('id',id).select().single();
     if(error){setErr(error.message);return;}
     setMsg(st==='pending_approval' ? 'Sent for approval.'
          : st==='approved' ? 'Approved. It can go to the supplier now.'
          : st==='sent' ? 'Marked as sent to the supplier.' : 'Back to a draft.');
-    load();
+    // only the step and who took it are taken back: the rest of the order and its lines may
+    // still hold typing that has not been saved, and a reload threw that away
+    if(data) setO(p=>({...p, status:data.status,
+      submitted_by:data.submitted_by, submitted_at:data.submitted_at,
+      approved_by:data.approved_by,   approved_at:data.approved_at,
+      sent_by:data.sent_by,           sent_at:data.sent_at}));
   };
   const who=pid=>{ const p=people.find(x=>x.id===pid); return p ? (p.full_name||p.email) : 'somebody'; };
   const when=d=>d ? new Date(d).toLocaleString('en-GB',
@@ -6447,6 +6497,10 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
   const poOffice=OFFICE_BY_ID[o.office_id]||{};
   const deliverTo=whs.find(w=>w.id===o.warehouse_id);
   const poMoney=o.currency||'EUR';   // the order's own money on the printed sheet, whatever the screen shows
+  // the same price in the other money, shown under the price box at the order's own rate
+  const otherCur = poMoney==='EUR' ? 'AED' : 'EUR';
+  const toOther  = v => poMoney==='EUR' ? nz(v)*poRate : nz(v)/poRate;
+  const money2   = v => (Math.round(nz(v)*100)/100).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
   const save=async()=>{
     setBusy(true); setErr(''); setMsg('');
     const {error}=await sb.from('purchase_orders').update({
@@ -6461,7 +6515,13 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
          it is tried with them, and on that one error tried again without, and the person
          is told which migration is missing rather than shown Postgres's own sentence. */
       let missing = false;
-      for(const l of lines){
+      /* A line with nothing on it at all is not an order line. "Add a line" pressed and left
+         empty used to stay for good; one order collected thirteen of them. */
+      const blank = l => !String(l.description||'').trim() && !String(l.hs_code||'').trim()
+        && !nz(l.packs) && !nz(l.weight_kg) && !nz(l.qty_ordered) && !nz(l.unit_price)
+        && !nz(l.list_price) && !nz(l.qty_received);
+      for(const l of lines.filter(blank)) await sb.from('purchase_order_lines').delete().eq('id',l.id);
+      for(const l of lines.filter(l=>!blank(l))){
         const core = { description:l.description, unit:l.unit,
           qty_ordered:num(l.qty_ordered)||0, unit_price:num(l.unit_price)||0 };
         const extra = { hs_code:l.hs_code||null,
@@ -6495,9 +6555,9 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
       + ((e && (e.message || e.error_description)) || String(e))); }
   };
   const addLineInner=async()=>{
-    const {error}=await sb.from('purchase_order_lines').insert({
+    const {data,error}=await sb.from('purchase_order_lines').insert({
       po_id:id, position:lines.length+1, description:'', unit:'kg',
-      qty_ordered:0, unit_price:0});
+      qty_ordered:0, unit_price:0}).select('*, products(name)').single();
     if(error){
       // everything the database said, because a tidied message is a message that cannot
       // be looked up
@@ -6506,11 +6566,16 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
         .filter(Boolean).join(' · ')) || 'The line could not be added.');
       return;
     }
-    load();
+    // added under the lines already on screen, not reloaded over them: a reload threw away
+    // every line typed and not yet saved, which is what kept disappearing
+    if(data) setLines(a=>[...a,data]);
   };
   const delLine=async(l)=>{
     if(nz(l.qty_received)>0) return setErr('Some of that line has already been received, so it cannot be removed.');
-    await sb.from('purchase_order_lines').delete().eq('id',l.id); load();
+    const {error}=await sb.from('purchase_order_lines').delete().eq('id',l.id);
+    if(error) return setLineErr(error.message);
+    // taken off the screen, not reloaded: the other lines keep what was typed on them
+    setLines(a=>a.filter(x=>x.id!==l.id));
   };
 
   /* ── reading their proforma ──────────────────────────────────────────────────
@@ -6557,15 +6622,25 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
                                   : Math.round(l.list_price*(1-l.discount_pct/100)*10000)/10000,
                  weight_kg: kg>0?kg:null };
       });
-      const {error}=await sb.from('purchase_order_lines').insert(rows);
+      const {data:added,error}=await sb.from('purchase_order_lines').insert(rows).select('*, products(name)');
       setPfBusy('');
       if(error){ setLineErr('The lines could not be added: '+error.message
         + (/column .* does not exist|schema cache/i.test(error.message||'')
            ? ' Run migration 0058 in Supabase first.' : '')); return; }
-      setPf(null); load();
+      setPf(null); setLines(a=>[...a,...(added||[])]);
     }catch(e){ setPfBusy(''); setLineErr('The lines could not be added: '+((e&&e.message)||String(e))); }
   };
   const upL=(i,k,v)=>setLines(a=>a.map((x,n)=>n===i?{...x,[k]:v}:x));
+
+  // What arrived changes that one line and perhaps the order's status. Only those are read
+  // back, so the rest of the screen keeps whatever is being typed on it.
+  const afterReceipt=async l=>{
+    const [ln,po]=await Promise.all([
+      sb.from('purchase_order_lines').select('qty_received').eq('id',l.id).single(),
+      sb.from('purchase_orders').select('status').eq('id',id).single()]);
+    if(ln.data) setLines(a=>a.map(x=>x.id===l.id?{...x,qty_received:ln.data.qty_received}:x));
+    if(po.data) setO(p=>({...p,status:po.data.status}));
+  };
 
   // ── deleting the whole order ──────────────────────────────────────────────────
   // An order that has taken delivery of anything is the only record of why that stock is in
@@ -6665,7 +6740,7 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
         </div>
       </div>
       <table class="iv-tbl">
-        <thead><tr><th style=${{width:'4%'}}>#</th><th>Description</th><th style=${{width:'10%'}}>Code</th>
+        <thead><tr><th style=${{width:'4%'}}>#</th><th>Description</th><th style=${{width:'10%'}}>HS code</th>
           <th style=${{width:'7%'}}>Packs</th><th style=${{width:'9%'}}>Qty</th><th style=${{width:'6%'}}>Unit</th>
           <th style=${{width:'10%'}}>List/pack</th><th style=${{width:'7%'}}>Disc %</th>
           <th style=${{width:'9%'}}>Weight kg</th><th style=${{width:'12%'}}>${'Amount '+poMoney}</th></tr></thead>
@@ -6727,13 +6802,13 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
     <div class="panel">
       <div class="panel-head"><h2>${_t("What is on order")}</h2>
         <span class="sp muted">${lines.length} ${plural(lines.length,'line')}</span></div>
-      ${/* Krypton's own columns, in Krypton's own order, so an order printed from here can
-            be laid beside their proforma and read straight down. Description, commodity
-            code, quantity, list price, discount, weight, and what that comes to. */''}
+      ${/* The figures the way Krypton gives them to us: the commodity code, how many packs,
+            the unit, the price per kilo and the discount, the weight, and what that comes to.
+            The quantity is not typed; a line in kilos is its weight. */''}
       <div class="polhead">
-        <span>Description</span><span>Code</span><span>${_t('Packs')}</span>
-        <span>${_t('Ordered')}</span><span>${_t('Unit')}</span><span>${_t('Recd')}</span>
-        <span>${_t('List/pack')}</span><span>${_t('Disc %')}</span>
+        <span>Description</span><span>${_t('HS code')}</span><span>${_t('Packs')}</span>
+        <span>${_t('Unit')}</span><span>${_t('Recd')}</span>
+        <span>${_t('Price / kg')+' ('+poMoney+')'}</span><span>${_t('Disc %')}</span>
         <span>${_t('Weight kg')}</span>
         <span class="r">${_t('Amount')}</span><span></span>
       </div>
@@ -6747,31 +6822,34 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
                 writes it into the description on their own paper. */''}
           <div>
             <input type="text" value=${l.description||''} list="prodlist"
-                   onInput=${e=>upL(i,'description',e.target.value)}/>
+                   onInput=${e=>editLine(i,{description:e.target.value})}/>
             ${l.pack_label && html`<div class="packlbl">${l.pack_label}</div>`}
           </div>
-          <input type="text" class="code" value=${l.hs_code||''} placeholder="HS"
+          <input type="text" class="code" value=${l.hs_code||''} placeholder="HS code"
                  onInput=${e=>upL(i,'hs_code',e.target.value)}/>
-          ${/* what Krypton acts on. The kilos beside it are what the warehouse holds. */''}
+          ${/* what Krypton acts on. On a line in kilos the weight follows the packs. */''}
           <input type="number" step="1" value=${l.packs??''} placeholder="0"
                  title=${l.pack_label ? l.pack_label
-                   : 'How many pails or rolls. The quantity beside it is what that weighs.'}
-                 onInput=${e=>upL(i,'packs',e.target.value)}/>
-          <input type="number" step="0.001" value=${l.qty_ordered??''}
-                 onInput=${e=>upL(i,'qty_ordered',e.target.value)}/>
-          <input type="text" value=${l.unit||''} onInput=${e=>upL(i,'unit',e.target.value)}/>
-          <div class=${'recv '+(left<=0.001?'done':'')}>${nz(l.qty_received).toLocaleString()}</div>
-          ${/* the list price, before the discount, which is the figure on their paper */''}
-          <input type="number" step="0.0001" value=${l.list_price??''}
-                 title=${'Krypton\u2019s list price for one ' + (l.pack_label||'pack')
-                        + ' before the discount. What we pay is '
-                        + fmtMoney(nz(l.unit_price), poCur) + ' the ' + (l.unit||'unit') + '.'}
-                 onInput=${e=>setListPrice(i,e.target.value)}/>
+                   : 'How many pails, kits or rolls. On a line in kilos the weight fills in from what one pack holds.'}
+                 onInput=${e=>editLine(i,{packs:e.target.value})}/>
+          <input type="text" value=${l.unit||''} onInput=${e=>editLine(i,{unit:e.target.value})}/>
+          <div class=${'recv '+(nz(l.qty_ordered)>0 && left<=0.001?'done':'')}>${nz(l.qty_received).toLocaleString()}</div>
+          ${/* Krypton's price per kilo before the discount, in the order's own money, with the
+                same price in the other money underneath at the order's rate */''}
+          <div>
+            <input type="number" step="0.0001" value=${perUnitOf(l)} placeholder="0"
+                   title=${'Krypton’s price per '+(lineInKg(l)?'kilo':(l.unit||'unit'))+' in '+poMoney
+                          +', before the discount. What we pay is '+money2(l.unit_price)+' '+poMoney
+                          +' the '+(lineInKg(l)?'kilo':(l.unit||'unit'))+'.'}
+                   onInput=${e=>editLine(i,{_perUnit:e.target.value})}/>
+            ${nz(perUnitOf(l))>0 && html`<div class="packlbl">${otherCur+' '+money2(toOther(perUnitOf(l)))
+              +' / '+(lineInKg(l)?'kg':(l.unit||'unit'))}</div>`}
+          </div>
           <input type="number" step="0.01" value=${l.discount_pct??''} placeholder="0"
-                 onInput=${e=>setDiscount(i,e.target.value)}/>
+                 onInput=${e=>editLine(i,{discount_pct:e.target.value})}/>
           <input type="number" step="0.001" value=${l.weight_kg??''} placeholder="0"
-                 title=${perKg==null?'':fmtMoney(perKg,poCur)+' the kilo'}
-                 onInput=${e=>upL(i,'weight_kg',e.target.value)}/>
+                 title=${perKg==null?'':fmtMoney(perKg,poCur)+' '+poCur+' the kilo, after the discount'}
+                 onInput=${e=>editLine(i,{weight_kg:e.target.value})}/>
           <div class="polval">${fmtMoney(amount, poCur)}</div>
           <div style=${{display:'flex',gap:'4px'}}>
             ${left>0.001 && l.product_id && html`<button class="xbtn" title="Record what arrived"
@@ -6860,7 +6938,7 @@ function OrderPage({id,rate,whs,quotes,projects,back}){
     <${CorrespondencePanel} poId=${id} heading="What was said about this order"/>
 
     ${rec && html`<${ReceiveModal} line=${rec} order=${o} whs=${whs}
-      close=${()=>setRec(null)} saved=${()=>{setRec(null);load();}}/>`}`;
+      close=${()=>setRec(null)} saved=${()=>{const l=rec; setRec(null); afterReceipt(l);}}/>`}`;
 }
 
 /* Receiving is one call in the database: it moves the line on, writes the stock movement
@@ -12869,22 +12947,36 @@ function People(){
       share_capital:0}).select().single(),setErr,'The partner');
     if(row) setPartners(v=>[...v,row]);
   };
+  /* A removal or a new payment changes the ledger, so the ledger is read again on its own.
+     Reloading the whole screen threw away anything typed on the partner rows and not yet
+     saved. */
+  const refreshLedger=async()=>{
+    const {data,error}=await sb.from('partner_ledger').select('*');
+    if(error) setErr(error.message); else setLed(data||[]);
+  };
   const delPartner=async(p)=>{
     if(!confirm('Remove '+p.name+'?')) return;
-    await sb.from('partners').delete().eq('id',p.id); load();
+    const {error}=await sb.from('partners').delete().eq('id',p.id);
+    if(error) return setErr(error.message);
+    setPartners(a=>a.filter(x=>x.id!==p.id)); refreshLedger();
   };
   const addPay=async()=>{
     if(!f.person.trim()) return setErr('Who is being paid?');
     if(!(Number(f.amount)>0)) return setErr('Enter an amount greater than zero.');
     setErr(''); setMsg('');
-    const {error}=await sb.from('payroll').insert({person:f.person.trim(),
+    const {data,error}=await sb.from('payroll').insert({person:f.person.trim(),
       partner_id:f.partner_id||null, kind:f.kind, period:f.period||null,
       amount:Number(f.amount), paid_on:f.paid_on||null,
-      bank_account_id:f.bank_account_id||null, notes:f.notes||null});
+      bank_account_id:f.bank_account_id||null, notes:f.notes||null}).select('*, partners(name)').single();
     if(error){setErr(error.message);return;}
-    setMsg('Recorded.'); setF(p=>({...p,amount:'',notes:''})); load();
+    setMsg('Recorded.'); setF(p=>({...p,amount:'',notes:''}));
+    if(data) setPay(a=>[data,...a]); refreshLedger();
   };
-  const delPay=async(r)=>{ await sb.from('payroll').delete().eq('id',r.id); load(); };
+  const delPay=async(r)=>{
+    const {error}=await sb.from('payroll').delete().eq('id',r.id);
+    if(error) return setErr(error.message);
+    setPay(a=>a.filter(x=>x.id!==r.id)); refreshLedger();
+  };
 
   const salaries=pay.filter(x=>x.kind==='salary');
   const drawings=pay.filter(x=>x.kind==='drawing');
@@ -12996,8 +13088,11 @@ function Banks(){
       currency:'AED',opening_balance:0,opening_date:today()}).select().single(),setErr,'The account');
     if(row) setRows(v=>[...v,row]);
   };
+  // removing one account leaves the typing on the others where it is
   const del=async(r)=>{ if(!confirm('Remove '+r.name+'?')) return;
-    await sb.from('bank_accounts').delete().eq('id',r.id); load(); };
+    const {error}=await sb.from('bank_accounts').delete().eq('id',r.id);
+    if(error) return setErr(error.message);
+    setRows(a=>a.filter(x=>x.id!==r.id)); setPos(a=>a.filter(x=>x.bank_account_id!==r.id)); };
   const total=pos.reduce((s,p)=>s+toActive(p.balance,p.currency),0);
 
   return html`

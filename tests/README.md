@@ -18,7 +18,7 @@ production. Two safety walls enforce that:
 | `serve.js` | Static server that swaps in `config.local.js`. `node tests/serve.js [port]`. |
 | `smoke.js` | Signs in and shows the catalogue. `WHO=OWNER node tests/smoke.js`. |
 | `lib.js` | Shared helpers: `sql`, `login`, `go`, `settle`, `lit`. |
-| `checks.js` | One browser check per Phase 5 fix and per applied decision (24 of them). `node tests/checks.js [name…]`. |
+| `checks.js` | One browser check per Phase 5 fix, per applied decision and per later fix (26 of them). `node tests/checks.js [name…]`. |
 | `scope_engine.js` / `scope_fixture.js` | The scope reader lifted out of `index.html`, checked against a hand-verified fixture for the Waterfront Market BOQ. `node tests/scope_fixture.js`. |
 | `apply_migrations.py` | Applies `migrations/*.sql` to the test project. `python3 tests/apply_migrations.py`. |
 | `e2e/` | The end-to-end journey suite (Phase 6), run with the Playwright test runner. |
@@ -43,7 +43,7 @@ production. Two safety walls enforce that:
 
 ```bash
 node tests/serve.js &                     # or let the e2e runner do it
-node tests/checks.js                       # the 24 per-fix checks
+node tests/checks.js                       # the 26 per-fix checks
 node tests/scope_fixture.js                # the offline scope reader fixture
 cd tests/e2e && ../node_modules/.bin/playwright test    # the seven journeys
 ```

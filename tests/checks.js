@@ -664,6 +664,105 @@ checks.buildup_note = async page => {
   } finally { await sql(`delete from quotations where id='${q.id}'`); }
 };
 
+// Charles, 11 September: typed order lines vanished when "Add a line" was pressed, and the
+// columns should read HS code, packs, unit, price per kilo in euros (converted), disc, weight.
+checks.order_typing = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [po] = await sql(`insert into purchase_orders (reference, supplier, status, currency, eur_aed_rate, notes, office_id)
+    values ('ZZTEST-PO-TYPE', 'Krypton Chemical S.L.', 'draft', 'EUR', 4.27, 'ZZTEST', '${dxb.id}') returning id`);
+  await sql(`insert into purchase_order_lines (po_id, position, description, unit, packs, pack_label, qty_ordered, unit_price, list_price, discount_pct, weight_kg, hs_code)
+    values ('${po.id}', 1, 'IBTMAX B 1K', 'kg', 91, '25 kg', 2275, 3.264, 272, 70, 2275, '39095090')`);
+  const rows = () => page.locator('.polrow');
+  const box = (r, k) => rows().nth(r).locator('input').nth(k);   // 0 name, 1 HS, 2 packs, 3 unit, 4 price, 5 disc, 6 weight
+  const count = n => page.waitForFunction(k => document.querySelectorAll('.polrow').length === k, n, { timeout: 15000 });
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Orders');
+    await page.locator('tr', { hasText: 'ZZTEST-PO-TYPE' }).locator('td').nth(3).click();
+    await page.waitForSelector('.polrow', { timeout: 15000 }); await settle(600);
+    const head = (await page.locator('.polhead').innerText()).replace(/\s+/g, ' ');
+    assert(/HS CODE/i.test(head) && /PACKS/i.test(head) && /UNIT/i.test(head) && /PRICE \/ KG \(EUR\)/i.test(head),
+      `the columns read HS code, Packs, Unit, Price / kg (EUR) (saw "${head}")`);
+    assert(!/ORDERED/i.test(head) && !/LIST\/PACK/i.test(head), 'there is no Ordered or List/pack column');
+    assert(await box(0, 4).inputValue() === '10.88', `272 a 25 kg pail reads as 10.88 a kilo (saw ${await box(0, 4).inputValue()})`);
+    const row0 = (await rows().nth(0).innerText()).replace(/\s+/g, ' ');
+    assert(/AED 46\.46 \/ kg/.test(row0), `the price is shown in dirhams underneath, at the order's 4.27 (saw "${row0}")`);
+
+    await box(0, 5).fill('60');                                        // an unsaved change on the saved line
+    await page.click('button:has-text("Add a line")'); await count(2);
+    await box(1, 0).fill('PE 100 BT COMP.A 10KG');
+    await box(1, 1).fill('39073000');
+    await box(1, 2).fill('12');
+    assert(await box(1, 6).inputValue() === '120', `twelve 10 kg kits fill in 120 kg (saw ${await box(1, 6).inputValue()})`);
+    await box(1, 4).fill('8.35');
+    const amt1 = await rows().nth(1).locator('.polval').innerText();
+    assert(/1,002\.00/.test(amt1), `120 kg at 8.35 comes to 1,002.00 (saw ${amt1})`);
+
+    await page.click('button:has-text("Add a line")'); await count(3); await settle(500);
+    assert(await box(1, 0).inputValue() === 'PE 100 BT COMP.A 10KG' && await box(1, 2).inputValue() === '12'
+      && await box(1, 4).inputValue() === '8.35' && await box(1, 6).inputValue() === '120',
+      'the typed line survives pressing "Add a line" again');
+    assert(await box(0, 5).inputValue() === '60', 'and so does the unsaved discount on the line above');
+
+    await rows().nth(2).locator('button.xbtn').last().click(); await count(2); await settle(400);
+    assert(await box(1, 4).inputValue() === '8.35' && await box(0, 5).inputValue() === '60', 'removing a line keeps the typing on the others');
+
+    await page.click('button:has-text("Ask for approval")'); await settle(1500);
+    assert(await box(1, 0).inputValue() === 'PE 100 BT COMP.A 10KG' && await box(0, 5).inputValue() === '60',
+      'asking for approval keeps the unsaved typing too');
+
+    await page.click('button:has-text("Add a line")'); await count(3); await settle(400);   // left empty on purpose
+    await page.click('.page-head button:has-text("Save")'); await settle(3000);
+    const saved = await sql(`select description, packs, qty_ordered, unit_price, list_price, discount_pct, weight_kg, hs_code
+      from purchase_order_lines where po_id='${po.id}' order by position, description`);
+    assert(saved.length === 2, `the line left empty was dropped on save (saw ${saved.length} lines)`);
+    const a = saved.find(x => x.description === 'IBTMAX B 1K'), b = saved.find(x => x.description === 'PE 100 BT COMP.A 10KG');
+    assert(a && Number(a.discount_pct) === 60 && Math.abs(Number(a.unit_price) - 4.352) < 0.0001 && Number(a.list_price) === 272,
+      `at 60% off, 10.88 a kilo is 4.352 and the pail stays 272 (saw ${JSON.stringify(a)})`);
+    assert(b && Number(b.qty_ordered) === 120 && Number(b.weight_kg) === 120 && Number(b.unit_price) === 8.35
+      && Number(b.list_price) === 83.5 && b.hs_code === '39073000',
+      `the new line saved as 120 kg at 8.35, 83.50 a kit, HS 39073000 (saw ${JSON.stringify(b)})`);
+    const [st] = await sql(`select status from purchase_orders where id='${po.id}'`);
+    assert(st.status === 'pending_approval', `the approval step was kept through the save (saw ${st.status})`);
+  } finally { await sql(`delete from purchase_orders where id='${po.id}'`); }
+};
+
+// The same loss on other screens: removing one bank account or partner reloaded the screen
+// and threw away unsaved typing on the rest.
+checks.delete_keeps_typing = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  await sql(`insert into bank_accounts (name, currency, opening_balance, office_id) values
+    ('ZZTEST Bank A', 'AED', 0, '${dxb.id}'), ('ZZTEST Bank B', 'AED', 0, '${dxb.id}')`);
+  await sql(`insert into partners (name, ownership_pct, share_capital, office_id) values
+    ('ZZTEST Partner A', 0, 0, '${dxb.id}'), ('ZZTEST Partner B', 0, 0, '${dxb.id}')`);
+  page.on('dialog', d => d.accept());
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Finance'); await page.click('.subnav button:has-text("Bank accounts")'); await settle(1500);
+    const accts = () => page.$$eval('.field', fs => fs.filter(f => /Account name/.test((f.querySelector('label') || {}).textContent || ''))
+      .map(f => f.querySelector('input').value));
+    let list = await accts();
+    const ia = list.indexOf('ZZTEST Bank A'), ib = list.indexOf('ZZTEST Bank B');
+    await page.locator('.field:has(> label:has-text("Account name")) input').nth(ia).fill('ZZTEST Bank A renamed');
+    await page.locator('button:has-text("Remove this account")').nth(ib).click(); await settle(1500);
+    list = await accts();
+    assert(!list.includes('ZZTEST Bank B') && list.includes('ZZTEST Bank A renamed'),
+      `removing one account keeps the other's unsaved name (saw ${JSON.stringify(list)})`);
+
+    await page.click('.subnav button:has-text("Salaries and partners")'); await settle(1500);
+    const names = () => page.$$eval('.prow', rs => rs.map(r => (r.querySelector('input') || {}).value));
+    let pl = await names();
+    const pa = pl.indexOf('ZZTEST Partner A'), pb = pl.indexOf('ZZTEST Partner B');
+    await page.locator('.prow').nth(pa).locator('input').first().fill('ZZTEST Partner A renamed');
+    await page.locator('.prow').nth(pb).locator('button.xbtn').click(); await settle(1500);
+    pl = await names();
+    assert(!pl.includes('ZZTEST Partner B') && pl.includes('ZZTEST Partner A renamed'),
+      `removing one partner keeps the other's unsaved name (saw ${JSON.stringify(pl)})`);
+  } finally {
+    await sql("delete from bank_accounts where name like 'ZZTEST%'; delete from partners where name like 'ZZTEST%'");
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
