@@ -14,7 +14,7 @@
 // origin, so it never reaches this file, which is what you want: the data must
 // always be the real data and never a stale copy.
 
-const VERSION = 'bt-2026.09.10-e';
+const VERSION = 'bt-2026.09.11';
 const SHELL   = 'shell-' + VERSION;
 
 // Fetched once and kept until the version changes.
