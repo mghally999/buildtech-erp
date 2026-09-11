@@ -4141,7 +4141,8 @@ function Catalogue({rate,focus,clearFocus}){
               <span>Costs us ${AED(Number(c.cost_aed),'AED')}${c.material_cost_aed_m2!=null
                 ? ', '+AED(Number(c.material_cost_aed_m2),'AED')+' / m²' : ''}</span>
               <span class="price">${c.sell_aed_m2!=null
-                ? 'Sell '+AED(Number(c.sell_aed_m2),'AED')+' / m²' : ''}</span>
+                ? 'Sell '+AED(Number(c.sell_aed_m2),'AED')+' / m²'
+                  +(nz(c.install_rate)?', install '+AED0(Number(c.install_rate),'AED')+' on top':'') : ''}</span>
             </div>`}`;
           })}
         </div>`)}
@@ -4629,13 +4630,13 @@ function ProjectPage({id,clients,back}){
 
     <div class="panel"><div class="panel-head"><h2>${_t("What it costs")}</h2></div><div class="panel-body">
       <div class="grid2">
-        <div class="field"><label>${_t("Materials (AED)")}</label>
+        <div class="field"><label>${pCur==='AED' ? _t("Materials (AED)") : _t("Materials")+' ('+pCur+')'}</label>
           <input type="number" step="0.01" value=${p.material_cost??''} onInput=${e=>set('material_cost',e.target.value)}/></div>
-        <div class="field"><label>${_t("Freight (AED)")}</label>
+        <div class="field"><label>${pCur==='AED' ? _t("Freight (AED)") : _t("Freight")+' ('+pCur+')'}</label>
           <input type="number" step="0.01" value=${p.freight_cost??''} onInput=${e=>set('freight_cost',e.target.value)}/></div>
-        <div class="field"><label>${_t("Customs duty (AED)")}</label>
+        <div class="field"><label>${pCur==='AED' ? _t("Customs duty (AED)") : _t("Customs duty")+' ('+pCur+')'}</label>
           <input type="number" step="0.01" value=${p.duty_cost??''} onInput=${e=>set('duty_cost',e.target.value)}/></div>
-        <div class="field"><label>${_t("Other, labour and site (AED)")}</label>
+        <div class="field"><label>${pCur==='AED' ? _t("Other, labour and site (AED)") : _t("Other, labour and site")+' ('+pCur+')'}</label>
           <input type="number" step="0.01" value=${p.other_cost??''} onInput=${e=>set('other_cost',e.target.value)}/></div>
       </div>
       <div class="tot">
@@ -6083,7 +6084,8 @@ function NewOrderModal({quotes,projects,whs,rate,close,saved,seed}){
       return setErr('One of the lines has a price but no quantity. Type how many kilos or '
         +'square metres it is, so the warehouse has something to receive.');
     setBusy(true);
-    const {data:ref,error:e0}=await sb.rpc('next_po_reference');
+    // the number comes from the office the order is raised in, Dubai and Bruges each keeping their own series
+    const {data:ref,error:e0}=await sb.rpc('next_po_reference',{p_office:OFFICE_ID||MY_OFFICE_ID||null});
     if(e0){setBusy(false);return setErr(e0.message);}
     const {data,error}=await sb.from('purchase_orders').insert({
       reference:ref, supplier:f.supplier.trim()||'Krypton Chemical S.L.',
@@ -11313,6 +11315,17 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
     const fromDb=(ss||[]).map(x=>({
       ...x, lines: normaliseSection((x.quotation_lines||[]).sort((a,b)=>a.position-b.position))}));
     setQ(qq); setSecs(fromDb);
+    /* The one-price-per-section rule has just run. Where it turned a line somebody had
+       priced into build-up, the section says so, rather than moving money out of the
+       total in silence. The switch on the line puts it back. */
+    const moved={};
+    fromDb.forEach((sec,i)=>{
+      const raw=((ss[i]||{}).quotation_lines||[]).slice().sort((a,b)=>a.position-b.position);
+      const turned=sec.lines.map((l,j)=>(!l.is_spec_note && l.is_costing && raw[j] && !raw[j].is_costing) ? j+1 : 0).filter(Boolean);
+      if(turned.length) moved[i]='Line '+turned.join(', ')+' now counts as build-up, not as a price: this section '
+        +'already has a priced line above it. Press the switch on the line to charge it.';
+    });
+    if(Object.keys(moved).length) setSecSaid(moved);
     savedRef.current = JSON.stringify({q:qq, secs:fromDb});
     if(draft && draft.q && qq){
       // the draft is picked up only over a copy nobody has saved since; otherwise the
@@ -12917,7 +12930,7 @@ function People(){
               <option value="drawing">${_t("Drawing, a partner taking money out")}</option></select></div>
           <div class="field"><label>${_t("Period")}</label>
             <input type="month" value=${f.period} onInput=${e=>set('period',e.target.value)}/></div>
-          <div class="field"><label>${_t("Amount (AED)")}</label>
+          <div class="field"><label>${ACTIVE_CUR==='AED' ? _t("Amount (AED)") : _t("Amount")+' ('+ACTIVE_CUR+')'}</label>
             <input type="number" step="0.01" value=${f.amount} onInput=${e=>set('amount',e.target.value)}/></div>
           <div class="field"><label>${_t("Which partner, for drawings")}</label>
             <select value=${f.partner_id} onChange=${e=>set('partner_id',e.target.value)}>

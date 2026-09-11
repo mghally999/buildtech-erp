@@ -611,6 +611,59 @@ checks.quote_approval = async page => {
   } finally { await sql(`delete from quotations where id='${q.id}'`); }
 };
 
+checks.po_numbering = async page => {
+  const [bru] = await sql("select id from offices where code='BRU'");
+  const before = new Set((await sql("select id from purchase_orders")).map(r => r.id));
+  try {
+    await login(page, 'FULL');   // Bruges
+    await go(page, 'Orders'); await page.click('button:has-text("New order")'); await settle(1500);
+    // an order with nothing on it asks to be confirmed once, and the button changes its
+    // wording when it does, so it is pressed by position until the form closes
+    const create = () => page.locator('.modal .modal-foot button').last().click();
+    await create(); await settle(1500);
+    if (await page.locator('.modal').count()) await create();
+    await page.waitForSelector('.flowrow', { timeout: 20000 }); await settle(1000);
+    const made = (await sql("select id, reference, office_id from purchase_orders")).filter(r => !before.has(r.id));
+    assert(made.length === 1 && /^PO-BE-\d{4}$/.test(made[0].reference) && made[0].office_id === bru.id,
+      `an order raised in Bruges takes a Bruges number (saw ${JSON.stringify(made.map(m => m.reference))})`);
+  } finally {
+    const made = (await sql("select id from purchase_orders")).filter(r => !before.has(r.id));
+    for (const m of made) await sql(`delete from purchase_orders where id='${m.id}'`);
+  }
+};
+
+checks.books_in_currency = async () => {
+  const [bru] = await sql("select id from offices where code='BRU'");
+  const [acct] = await sql(`insert into bank_accounts (name, currency, opening_balance, office_id) values ('ZZTEST EUR account', 'EUR', 1000, '${bru.id}') returning id`);
+  // amount_aed is worked out by the database from the amount and the rate
+  await sql(`insert into expenses (expense_date, kind, category, description, amount, currency, eur_aed_rate, paid_on, bank_account_id, office_id)
+    values (current_date, 'expense', 'Other Expenses', 'ZZTEST euro cost', 100, 'EUR', 4.27, current_date, '${acct.id}', '${bru.id}')`);
+  await sql(`insert into payroll (person, kind, amount, paid_on, bank_account_id, office_id) values ('ZZTEST Belgian salary', 'salary', 200, current_date, '${acct.id}', '${bru.id}')`);
+  try {
+    const [c] = await sql(`select spent, wages_and_drawings, balance from cash_position where bank_account_id='${acct.id}'`);
+    assert(Number(c.spent) === 100 && Number(c.wages_and_drawings) === 200 && Number(c.balance) === 700,
+      `a EUR 100 cost and a EUR 200 salary take EUR 300 off a Belgian account, not 427 and 854 (saw ${JSON.stringify(c)})`);
+    const [k] = await sql("select material_cost_aed_m2, sell_aed_m2, margin from catalogue_pricing where kg_per_m2 is not null limit 1");
+    assert(Math.abs(Number(k.sell_aed_m2) - Number(k.material_cost_aed_m2) / (1 - Number(k.margin))) < 0.02,
+      `the catalogue's sell price is the material cost at the margin, as the editor prices it (saw ${JSON.stringify(k)})`);
+  } finally { await sql("delete from payroll where person like 'ZZTEST%'; delete from expenses where description like 'ZZTEST%'; delete from bank_accounts where name like 'ZZTEST%'"); }
+};
+
+checks.buildup_note = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-TWO', 4.27, '${dxb.id}', 'ZZTEST two prices') returning id`);
+  const [sec] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Roof') returning id`);
+  await sql(`insert into quotation_lines (section_id, position, description, unit, quantity, sell_rate, is_costing) values
+    ('${sec.id}', 1, 'Supply', 'm²', 100, 50, false), ('${sec.id}', 2, 'Application', 'm²', 100, 20, false)`);
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Quotations'); await page.locator('tr', { hasText: 'ZZTEST-Q-TWO' }).locator('td').nth(2).click();
+    await page.waitForSelector('.secsaid', { timeout: 15000 });
+    const note = await page.locator('.secsaid').first().textContent();
+    assert(/Line 2 now counts as build-up/.test(note), `the section says which line the one-price rule moved (saw "${note}")`);
+  } finally { await sql(`delete from quotations where id='${q.id}'`); }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
