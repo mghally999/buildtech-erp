@@ -1020,6 +1020,8 @@ ul.plain{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.7}
 .pickrow:last-child{border-bottom:none}
 .pickrow:hover{background:var(--surface-2)}
 .card-click:hover{box-shadow:0 4px 18px rgba(0,0,0,.10)}
+/* the boxes the invoice reader filled in, until somebody changes them */
+.field.filled input,.field.filled select{border-color:var(--info);box-shadow:0 0 0 2px var(--info-bg)}
 @media(max-width:620px){.doc{grid-template-columns:1fr;gap:6px}.doc .acts{justify-content:flex-start}}
 
 /* ---------- shipments ---------- */
@@ -12754,6 +12756,57 @@ function FinanceOverview({go}){
 }
 
 /* ── money out ── */
+/* ── reading a supplier's invoice ────────────────────────────────────────────────
+   Charles photographs or screenshots an invoice and the cost form fills itself in from it.
+   The reading is done by a Supabase Edge Function (supabase/functions/read-invoice), which
+   holds the Anthropic key and checks who is asking; the page never sees the key.
+
+   A picture is sent as a JPEG no bigger than 2000 pixels on its longer side: a phone photo
+   is often 4000 across and several megabytes, slower to send and no easier to read. A PDF
+   goes as it is. */
+const invoiceFilePayload = async file => {
+  const type = String(file.type||'').toLowerCase();
+  const name = String(file.name||'');
+  if(type==='application/pdf' || /\.pdf$/i.test(name)){
+    if(file.size > 10*1024*1024)
+      throw new Error('That PDF is over 10 MB. Send a smaller copy, or a screenshot of the invoice.');
+    const buf = new Uint8Array(await file.arrayBuffer());
+    let bin = '';
+    for(let i=0; i<buf.length; i+=0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i+0x8000));
+    return { media_type:'application/pdf', data:btoa(bin) };
+  }
+  if(!/^image\//.test(type) && !/\.(jpe?g|png|webp|gif|heic|heif)$/i.test(name))
+    throw new Error('Choose a PDF, or a photo or screenshot of the invoice.');
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((ok, bad) => { const i = new Image();
+      i.onload = () => ok(i);
+      i.onerror = () => bad(new Error('That picture could not be opened here. Save it as a JPEG or PNG, or take a screenshot of it.'));
+      i.src = url; });
+    const scale = Math.min(1, 2000/Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth*scale));
+    c.height = Math.max(1, Math.round(img.naturalHeight*scale));
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);   // a transparent screenshot reads on white
+    g.drawImage(img, 0, 0, c.width, c.height);
+    return { media_type:'image/jpeg', data:c.toDataURL('image/jpeg', 0.9).split(',')[1] };
+  } finally { URL.revokeObjectURL(url); }
+};
+const readInvoiceFile = async file => {
+  const payload = await invoiceFilePayload(file);
+  const { data, error } = await sbRaw.functions.invoke('read-invoice', { body: payload });
+  if(error){
+    // the function says what went wrong in plain words; a network failure or a function
+    // that is not there yet says nothing, so that gets a sentence of its own
+    let said = '';
+    try{ const j = await error.context.json(); said = (j && j.error) || ''; }catch(e){}
+    throw new Error(said || 'The invoice reader could not be reached. Enter the cost by hand for now.');
+  }
+  if(!data || !data.invoice) throw new Error('The invoice reader gave no answer. Enter the cost by hand for now.');
+  return data.invoice;
+};
+
 function Costs({rate}){
   const [rows,setRows]=useState(null); const [partners,setPartners]=useState([]);
   const [banks,setBanks]=useState([]); const [projects,setProjects]=useState([]);
@@ -12762,7 +12815,26 @@ function Costs({rate}){
   const [f,setF]=useState({expense_date:today(),category:'Other Expenses',description:'',
     supplier:'',reference:'',amount:'',currency:'AED',eur_aed_rate:'',paid_by:'',
     paid_by_partner_id:'',bank_account_id:'',paid_on:today(),project_id:'',kind:'expense'});
-  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const [inv,setInv]=useState(null);        // what the invoice reader made of the last file
+  const [invBusy,setInvBusy]=useState('');  // said on the button while it reads
+  const [filled,setFilled]=useState({});    // the boxes it filled, marked until they are changed
+  const readRef=useRef(null);
+  /* A screenshot pasted anywhere on this screen is read. Pasting text into a box still
+     pastes the text: only a paste that carries a picture or a PDF, and no text for a box
+     to take, goes to the reader. */
+  useEffect(()=>{
+    const onPaste=e=>{
+      const cd=e.clipboardData; if(!cd) return;
+      const file=[...(cd.files||[])].find(x=>/^image\/|pdf/i.test(x.type||''));
+      if(!file || !readRef.current) return;
+      const t=e.target, inBox=t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA');
+      if(inBox && cd.getData('text/plain')) return;
+      e.preventDefault(); readRef.current(file);
+    };
+    window.addEventListener('paste',onPaste);
+    return ()=>window.removeEventListener('paste',onPaste);
+  },[]);
+  const set=(k,v)=>{ setF(p=>({...p,[k]:v})); setFilled(m=>m[k]?{...m,[k]:false}:m); };
 
   const load=useCallback(async()=>{
     const [ex,pa,bk,pj]=await Promise.all([
@@ -12786,6 +12858,42 @@ function Costs({rate}){
                      .reduce((s,r)=>s+nz(r.amount_aed),0);
   const unpaid=shown.filter(r=>!r.paid_on);
 
+  /* What the invoice says goes into the form, and nothing more: nothing is saved until Add
+     cost is pressed, and every box it filled is marked so it can be checked first. An
+     amount in a currency the ledger does not keep is left for a person to convert. */
+  const readInvoice=async file=>{
+    if(!file || invBusy) return;
+    setErr(''); setMsg(''); setInv(null); setFilled({});
+    setInvBusy('Reading '+(file.name||'the picture')+'…');
+    try{
+      const x = await readInvoiceFile(file);
+      const cur = String(x.currency||'').toUpperCase();
+      const amount = x.total!=null ? Number(x.total)
+                   : x.subtotal!=null ? Number(x.subtotal)+Number(x.vat||0) : null;
+      const next = {};
+      if(/^\d{4}-\d{2}-\d{2}$/.test(x.invoice_date||'')) next.expense_date = x.invoice_date;
+      if(x.supplier) next.supplier = x.supplier;
+      if(x.invoice_number) next.reference = x.invoice_number;
+      if(x.description) next.description = x.description;
+      if(amount!=null && amount>0) next.amount = String(Math.round(amount*100)/100);
+      if(cur==='AED' || cur==='EUR') next.currency = cur;
+      if(x.category && cats.includes(x.category)) next.category = x.category;
+      // a receipt was paid on its date; an invoice is owed until somebody says otherwise
+      if(x.is_paid===true) next.paid_on = next.expense_date || f.paid_on;
+      else if(x.is_paid===false) next.paid_on = '';
+      setF(p=>({...p, ...next}));
+      setFilled(Object.fromEntries(Object.keys(next).map(k=>[k,true])));
+      const warn = [];
+      if(x.is_invoice===false) warn.push('This does not look like an invoice or a receipt.');
+      if(cur && cur!=='AED' && cur!=='EUR') warn.push('It is in '+cur+'. Costs are kept in dirhams or euros, so convert the amount and choose the currency yourself.');
+      if(amount==null) warn.push('No total could be read. Type the amount.');
+      setInv({file:file.name||'the picture', supplier:x.supplier||'', total:amount, cur,
+              vat:x.vat, due:x.due_date, paid:x.is_paid, doubts:[...warn, ...(x.doubts||[])]});
+    }catch(e){ setErr((e&&e.message)||String(e)); }
+    setInvBusy('');
+  };
+  readRef.current = readInvoice;
+
   const add=async()=>{
     if(!f.description.trim()) return setErr('Say what the money was for.');
     if(!(Number(f.amount)>0))  return setErr('Enter an amount greater than zero.');
@@ -12804,6 +12912,7 @@ function Costs({rate}){
     if(error){setErr(error.message);return;}
     setMsg('Added.');
     setF(p=>({...p,description:'',amount:'',supplier:'',reference:''}));
+    setInv(null); setFilled({});
     load();
   };
   const upd=async(r,patch)=>{
@@ -12820,28 +12929,51 @@ function Costs({rate}){
     ${err && html`<div class="err">${err}</div>`}
     ${msg && html`<div class="ok">${msg}</div>`}
 
-    <div class="panel">
-      <div class="panel-head"><h2>${_t("Add a cost")}</h2></div>
+    <div class="panel"
+      onDragOver=${e=>{ if(e.dataTransfer && [...(e.dataTransfer.types||[])].includes('Files')) e.preventDefault(); }}
+      onDrop=${e=>{ const file=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                    if(file){ e.preventDefault(); readInvoice(file); } }}>
+      <div class="panel-head"><h2>${_t("Add a cost")}</h2>
+        ${/* The invoice fills the form in: a PDF, a photo, or a screenshot dropped here or
+              pasted with Ctrl+V. Nothing is saved until Add cost is pressed. */''}
+        <label class="btn sec sm sp invpick" style=${{cursor:invBusy?'wait':'pointer'}}
+          title="Choose a PDF, a photo or a screenshot of the invoice. You can also drop it on this box, or paste a screenshot with Ctrl+V.">
+          ${invBusy || _t('Read an invoice')}
+          <input type="file" accept="application/pdf,image/*" style=${{display:'none'}} disabled=${!!invBusy}
+            onChange=${e=>{ const file=e.target.files&&e.target.files[0]; e.target.value=''; if(file) readInvoice(file); }}/>
+        </label></div>
       <div class="panel-body">
+        ${inv && html`<div class="flagbox invread">
+          ${'Read from '+inv.file+(inv.supplier?': '+inv.supplier:'')
+            +(inv.total!=null?', '+(inv.cur?inv.cur+' ':'')+fmtN(inv.total):'')
+            +(nz(inv.vat)>0?' including '+fmtN(inv.vat)+' VAT':'')
+            +(inv.due?', due '+fmtDate(inv.due):'')
+            +(inv.paid===true?', already paid':inv.paid===false?', still owed':'')
+            +'. The marked boxes came from it. Check each one, then press Add cost.'}
+          ${inv.doubts.length>0 && html`<ul style=${{margin:'6px 0 0',paddingLeft:'18px'}}>${
+            inv.doubts.map((d,n)=>html`<li key=${n}>${d}</li>`)}</ul>`}
+          <button class="xbtn" style=${{marginLeft:'8px'}} title="Hide this"
+            onClick=${()=>{ setInv(null); setFilled({}); }}>×</button>
+        </div>`}
         <div class="grid2">
-          <div class="field"><label>${_t("Date")}</label>
+          <div class=${'field'+(filled.expense_date?' filled':'')}><label>${_t("Date")}</label>
             <input type="date" value=${f.expense_date} onInput=${e=>set('expense_date',e.target.value)}/></div>
-          <div class="field"><label>${_t("Category")}</label>
+          <div class=${'field'+(filled.category?' filled':'')}><label>${_t("Category")}</label>
             <select value=${f.category} onChange=${e=>set('category',e.target.value)}>
               ${cats.map(c=>html`<option key=${c} value=${c}>${c}</option>`)}</select></div>
         </div>
-        <div class="field"><label>${_t("What was it for")}</label>
+        <div class=${'field'+(filled.description?' filled':'')}><label>${_t("What was it for")}</label>
           <input type="text" placeholder="${_t("Trade licence renewal, materials from Bruges\u2026")}"
                  value=${f.description} onInput=${e=>set('description',e.target.value)}/></div>
         <div class="grid2">
-          <div class="field"><label>${_t("Supplier")}</label>
+          <div class=${'field'+(filled.supplier?' filled':'')}><label>${_t("Supplier")}</label>
             <input type="text" value=${f.supplier} onInput=${e=>set('supplier',e.target.value)}/></div>
-          <div class="field"><label>${_t("Reference")}</label>
+          <div class=${'field'+(filled.reference?' filled':'')}><label>${_t("Reference")}</label>
             <input type="text" placeholder="${_t("JV number or supplier invoice")}"
                    value=${f.reference} onInput=${e=>set('reference',e.target.value)}/></div>
-          <div class="field"><label>${_t("Amount")}</label>
+          <div class=${'field'+(filled.amount?' filled':'')}><label>${_t("Amount")}</label>
             <input type="number" step="0.01" value=${f.amount} onInput=${e=>set('amount',e.target.value)}/></div>
-          <div class="field"><label>${_t("Currency")}</label>
+          <div class=${'field'+(filled.currency?' filled':'')}><label>${_t("Currency")}</label>
             <select value=${f.currency} onChange=${e=>set('currency',e.target.value)}>
               <option value="AED">${_t("AED")}</option><option value="EUR">${_t("EUR, converted at the rate below")}</option>
             </select></div>
@@ -12858,7 +12990,7 @@ function Costs({rate}){
             <select value=${f.paid_by_partner_id} onChange=${e=>set('paid_by_partner_id',e.target.value)}>
               <option value="">${_t("Nobody, the company paid it")}</option>
               ${partners.map(p=>html`<option key=${p.id} value=${p.id}>${p.name}</option>`)}</select></div>
-          <div class="field"><label>${_t("Paid on, leave blank if still owed")}</label>
+          <div class=${'field'+(filled.paid_on?' filled':'')}><label>${_t("Paid on, leave blank if still owed")}</label>
             <input type="date" value=${f.paid_on} onInput=${e=>set('paid_on',e.target.value)}/></div>
           <div class="field"><label>${_t("Paid from which account")}</label>
             <select value=${f.bank_account_id} onChange=${e=>set('bank_account_id',e.target.value)}>

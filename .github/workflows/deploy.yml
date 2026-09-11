@@ -29,6 +29,10 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           ALLOW_PRODUCTION: "yes"
         run: python3 tests/apply_migrations.py
+      - name: deploy the invoice reader function (its Anthropic key is set once, on Supabase)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: npx --yes supabase@2 functions deploy read-invoice --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} --use-api
 
   site:
     name: publish the site to Cloudflare

@@ -763,6 +763,137 @@ checks.delete_keeps_typing = async page => {
   }
 };
 
+// A realistic supplier invoice, rendered in a page and captured as a PNG, the way a
+// screenshot of one arrives. Returns the picture and what is printed on it.
+async function invoicePicture(browser, printed) {
+  const ctx = await browser.newContext({ viewport: { width: 820, height: 900 } });
+  const p = await ctx.newPage();
+  await p.setContent(`<div style="font-family:Arial,sans-serif;padding:40px;width:720px;color:#111">
+    <div style="display:flex;justify-content:space-between"><div><b style="font-size:20px">${printed.supplier}</b><br>
+    Dubai Silicon Oasis, Dubai, United Arab Emirates<br>TRN 100234567800003</div>
+    <div style="text-align:right"><b style="font-size:24px">TAX INVOICE</b><br>Invoice No: ${printed.number}<br>
+    Date: ${printed.dateText}<br>Due: ${printed.dueText}</div></div>
+    <p style="margin-top:28px">Bill to: BUILD TECH PROTECTION MATERIALS L.L.C</p>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px" border="1" cellpadding="8">
+      <tr style="background:#eee"><th align="left">Description</th><th align="right">Amount AED</th></tr>
+      <tr><td>${printed.item}</td><td align="right">${printed.subtotalText}</td></tr>
+      <tr><td>VAT 5%</td><td align="right">${printed.vatText}</td></tr>
+      <tr><td><b>Total payable AED</b></td><td align="right"><b>${printed.totalText}</b></td></tr></table>
+    <p style="margin-top:24px">Payment by bank transfer within 30 days.</p></div>`);
+  const buffer = await p.screenshot({ fullPage: true });
+  await ctx.close();
+  return buffer;
+}
+const formValues = page => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.panel .field')]
+  .filter(f => f.querySelector('label') && f.querySelector('input,select'))
+  .map(f => [f.querySelector('label').textContent.trim(), f.querySelector('input,select').value])));
+
+// Charles, 11 September: upload an invoice, or a screenshot of one, and the cost fills itself in.
+checks.invoice_reader_ui = async page => {
+  const answer = {
+    is_invoice: true, supplier: 'ZZTEST Green Ocean Businessmen Services FZCO', invoice_number: 'GO-INV-4471',
+    invoice_date: '2026-09-03', due_date: '2026-10-03', is_paid: false, currency: 'AED',
+    subtotal: 16523.81, vat: 826.19, total: 17350, description: 'ZZTEST Trade licence renewal package',
+    category: 'Trade licence', doubts: ['The date 03/09/2026 was read as 3 September.'],
+  };
+  let sent = null, reply = answer;
+  await page.route('**/functions/v1/read-invoice', async route => {
+    if (route.request().method() === 'OPTIONS') return route.continue();
+    sent = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': 'http://127.0.0.1:5173' }, body: JSON.stringify({ invoice: reply }) });
+  });
+  const picture = await invoicePicture(page.context().browser(), { supplier: 'Green Ocean Businessmen Services FZCO',
+    number: 'GO-INV-4471', dateText: '03/09/2026', dueText: '03/10/2026', item: 'Trade licence renewal package',
+    subtotalText: '16,523.81', vatText: '826.19', totalText: '17,350.00' });
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Finance'); await page.click('.subnav button:has-text("Money out")'); await settle(1500);
+    await page.locator('label.invpick input[type=file]').setInputFiles({ name: 'invoice.png', mimeType: 'image/png', buffer: picture });
+    await page.waitForSelector('.flagbox.invread', { timeout: 20000 }); await settle(400);
+    assert(sent && sent.media_type === 'image/jpeg' && sent.data.length > 1000, `the picture was sent as a JPEG (saw ${sent && sent.media_type})`);
+    const dims = await page.evaluate(b64 => new Promise(ok => { const i = new Image(); i.onload = () => ok([i.naturalWidth, i.naturalHeight]); i.src = 'data:image/jpeg;base64,' + b64; }), sent.data);
+    assert(Math.max(...dims) <= 2000, `and no bigger than 2000 pixels (saw ${dims.join('x')})`);
+    const v = await formValues(page);
+    assert(v['Date'] === '2026-09-03' && v['Supplier'] === answer.supplier && v['Reference'] === 'GO-INV-4471'
+      && v['Amount'] === '17350' && v['Currency'] === 'AED' && v['Category'] === 'Trade licence'
+      && v['What was it for'] === answer.description && v['Paid on, leave blank if still owed'] === '',
+      `the form is filled from the invoice, left owed (saw ${JSON.stringify(v)})`);
+    const marked = await page.locator('.field.filled').count();
+    assert(marked >= 7, `the boxes it filled are marked (saw ${marked})`);
+    const note = (await page.locator('.flagbox.invread').innerText()).replace(/\s+/g, ' ');
+    assert(/Read from invoice\.png/.test(note) && /AED 17,350\.00/.test(note) && /including 826\.19 VAT/.test(note)
+      && /still owed/.test(note) && /read as 3 September/.test(note), `the note says what was read and what is in doubt (saw "${note}")`);
+    const [none] = await sql("select count(*)::int as n from expenses where reference='GO-INV-4471'");
+    assert(none.n === 0, 'nothing is saved before Add cost');
+    await page.locator('.field:has(> label:has-text("Supplier")) input').fill('ZZTEST Green Ocean FZCO');
+    assert(!(await page.locator('.field.filled:has(> label:has-text("Supplier"))').count()), 'a box that is changed loses its mark');
+    await page.click('button:has-text("Add cost")'); await settle(2000);
+    const [row] = await sql("select supplier, reference, amount, currency, category, expense_date, paid_on from expenses where reference='GO-INV-4471'");
+    assert(row && row.supplier === 'ZZTEST Green Ocean FZCO' && Number(row.amount) === 17350 && row.currency === 'AED'
+      && row.category === 'Trade licence' && row.expense_date === '2026-09-03' && row.paid_on === null,
+      `Add cost saves what was checked (saw ${JSON.stringify(row)})`);
+    assert(!(await page.locator('.flagbox.invread').count()), 'and the note goes');
+
+    // a receipt in dollars: paid, and the currency left for a person
+    reply = { ...answer, invoice_number: 'ZZTEST-USD-1', currency: 'USD', total: 99, subtotal: null, vat: null, is_paid: true, doubts: [] };
+    await page.evaluate(b64 => {
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const dt = new DataTransfer(); dt.items.add(new File([bytes], 'screenshot.png', { type: 'image/png' }));
+      window.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt }));
+    }, picture.toString('base64'));
+    await page.waitForFunction(() => /screenshot\.png/.test((document.querySelector('.flagbox.invread') || {}).textContent || ''), null, { timeout: 20000 });
+    const note2 = (await page.locator('.flagbox.invread').innerText()).replace(/\s+/g, ' ');
+    const v2 = await formValues(page);
+    assert(/It is in USD/.test(note2) && v2['Currency'] === 'AED', `a pasted screenshot is read, and USD is flagged rather than guessed (saw "${note2}", currency ${v2['Currency']})`);
+    assert(v2['Paid on, leave blank if still owed'] === '2026-09-03', `a paid receipt is dated paid on its own date (saw ${v2['Paid on, leave blank if still owed']})`);
+
+    // the reader saying no is said on screen
+    await page.unroute('**/functions/v1/read-invoice');
+    await page.route('**/functions/v1/read-invoice', async route => {
+      if (route.request().method() === 'OPTIONS') return route.continue();
+      await route.fulfill({ status: 503, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': 'http://127.0.0.1:5173' },
+        body: JSON.stringify({ error: 'ZZTEST: the reader is resting.' }) });
+    });
+    await page.locator('label.invpick input[type=file]').setInputFiles({ name: 'invoice.png', mimeType: 'image/png', buffer: picture });
+    await settle(3000);
+    const err = (await page.locator('.err').allTextContents()).join(' | ');
+    assert(/ZZTEST: the reader is resting\./.test(err), `the reader's own reason is shown when it refuses (saw "${err}")`);
+  } finally {
+    await sql("delete from expenses where reference in ('GO-INV-4471','ZZTEST-USD-1') or description like 'ZZTEST%'");
+  }
+};
+
+// The real reader, end to end: a screenshot of an invoice goes to the deployed function.
+// Until the Anthropic key is set on the function, the page must say it is not switched on.
+checks.invoice_reader_live = async page => {
+  const picture = await invoicePicture(page.context().browser(), { supplier: 'Green Ocean Businessmen Services FZCO',
+    number: 'GO-INV-4471', dateText: '03/09/2026', dueText: '03/10/2026', item: 'Trade licence renewal package',
+    subtotalText: '16,523.81', vatText: '826.19', totalText: '17,350.00' });
+  await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+  await go(page, 'Finance'); await page.click('.subnav button:has-text("Money out")'); await settle(1500);
+  const started = Date.now();
+  await page.locator('label.invpick input[type=file]').setInputFiles({ name: 'invoice.png', mimeType: 'image/png', buffer: picture });
+  await page.waitForFunction(() => document.querySelector('.flagbox.invread') || document.querySelector('.err'), null, { timeout: 150000 });
+  const seconds = Math.round((Date.now() - started) / 100) / 10;
+  const err = (await page.locator('.err').allTextContents()).join(' | ');
+  if (/not switched on yet/.test(err)) {
+    assert(true, `without its key the reader says it is not switched on (${seconds}s)`);
+    console.log('    (the Anthropic key is not set on the test function yet, so the reading itself was not exercised)');
+    return;
+  }
+  assert(!err, `no error from the live reader (saw "${err}")`);
+  const v = await formValues(page);
+  const note = (await page.locator('.flagbox.invread').innerText()).replace(/\s+/g, ' ');
+  assert(/Green Ocean/i.test(v['Supplier'] || ''), `the supplier was read (saw "${v['Supplier']}")`);
+  assert((v['Reference'] || '').replace(/\s/g, '') === 'GO-INV-4471', `the invoice number was read (saw "${v['Reference']}")`);
+  assert(v['Amount'] === '17350', `the total payable was read (saw "${v['Amount']}")`);
+  assert(v['Currency'] === 'AED', `the currency was read (saw "${v['Currency']}")`);
+  assert(v['Date'] === '2026-09-03', `03/09/2026 was read day first (saw "${v['Date']}")`);
+  assert(/826\.19/.test(note), `the VAT was read (saw "${note}")`);
+  console.log(`    (read in ${seconds}s; category "${v['Category']}"; note: ${note.slice(0, 160)})`);
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();

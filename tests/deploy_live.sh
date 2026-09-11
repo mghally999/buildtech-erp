@@ -1,9 +1,10 @@
 #!/bin/sh
-# Put the current build live: the database changes first, then the site, then the auth
-# settings, then a check of all three. Reads the tokens from .env.local in the repo root:
+# Put the current build live: the database changes first, then the invoice reader function,
+# then the site, then the auth settings, then a check. Reads the tokens from .env.local in the repo root:
 #   SUPABASE_ACCESS_TOKEN   (write access to the live project)
 #   CLOUDFLARE_API_TOKEN    (Workers Scripts: Edit on the account that owns the Worker)
 #   CLOUDFLARE_ACCOUNT_ID
+#   ANTHROPIC_API_KEY       (optional: set on the invoice reader function when present)
 #
 #   bash tests/deploy_live.sh
 #
@@ -20,6 +21,14 @@ H1="Authorization: Bearer $SUPABASE_ACCESS_TOKEN"; H2="Content-Type: application
 
 echo "== 1. migrations on the live project"
 ALLOW_PRODUCTION=yes SUPABASE_PROJECT_REF=$PROD python3 tests/apply_migrations.py
+
+echo "== 1b. the invoice reader function, with its Anthropic key when .env.local has one"
+npx --yes supabase@2 functions deploy read-invoice --project-ref $PROD --use-api 2>&1 | tail -2
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  curl -s -m 30 -X POST "$API/secrets" -H "$H1" -H "$H2" -H "$H3" \
+    -d "[{\"name\":\"ANTHROPIC_API_KEY\",\"value\":\"$ANTHROPIC_API_KEY\"}]" \
+    -o /dev/null -w "Anthropic key set on the function: HTTP %{http_code}\n"
+fi
 
 echo "== 2. the site"
 rm -rf site && mkdir -p site

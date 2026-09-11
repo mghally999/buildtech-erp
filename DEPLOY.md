@@ -31,6 +31,27 @@ Either way, after the first sign-in: Settings, "Who can get in": give Chris owne
 and set each Belgian colleague's office to Bruges. Then Settings, The document: the Dubai
 TRN. Authentication settings on Supabase: sign-up off, minimum password length 8.
 
+## The invoice reader
+
+Money out has "Read an invoice": a PDF, a photo, or a screenshot dropped on the form or
+pasted with Ctrl+V fills the cost in, for a person to check before Add cost. The reading is
+done by the Supabase Edge Function in `supabase/functions/read-invoice`, which calls Claude
+(`claude-opus-5`) and only answers a signed-in user.
+
+It needs one secret on the Supabase project, `ANTHROPIC_API_KEY`, from console.anthropic.com.
+Set it in Supabase, Edge Functions, Secrets; or put it in `.env.local` and run
+`bash tests/deploy_live.sh`, which sets it. Until it is set, the button says the reader is
+not switched on yet and nothing else changes. Reading one invoice costs a few US cents.
+
+To deploy the function by hand:
+
+```
+SUPABASE_ACCESS_TOKEN=... npx supabase@2 functions deploy read-invoice --project-ref zlyqecpsgzgbpbikrlro --use-api
+```
+
+If the site moves to another address, set `ALLOWED_ORIGINS` on the function to the new
+address, or the browser will refuse to call it.
+
 ## Zips
 
 ```
