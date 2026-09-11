@@ -560,20 +560,22 @@ applied to the test project only; `docs/AUDIT-REPORT.md` §8 says how they go li
 | F-065 / F-067 (missing TDS/SDS; Charles's item 1) | `feat: Phase 5 F` |
 | F-073 friction, top three of section H (Charles's item 6): H-01 pick a product and have its line written, H-02 a new section starts from the previous area, H-03 save and print in one step with the colour blocks printing on their own; plus H-13's teaching placeholder | `feat: Phase 5 G` (printed sheet byte-for-byte unchanged) |
 
-**Left unapplied on purpose, because each changes a business rule only Charles can set.**
-The SQL for each is written in `docs/SECURITY-AUDIT.md` §7 and waits for his word:
+**Decided by Charles on 11 September 2026 and applied** (migrations 0068–0074, applied to
+the test project only; `docs/AUDIT-REPORT.md` §8 says how they go live):
 
-- **F-003** (money out is kept in dirhams only): fixing it means deciding whether the
-  Belgian books are kept in euros end to end, which changes every finance screen.
-- **F-070** (a second priced line in a section silently becomes build-up): the rule may be
-  intended; changing it changes how every existing quotation reads.
-- **F-012, F-045, F-066**: the two overlapping sales funnels and the second ledger next to
-  Zoho are structural choices, not faults.
-- **SECURITY-AUDIT 7.3** (office separation in the database), **7.6** (quotation approval by
-  owners only), **7.7** (money that only owners should see), **7.8** (non-owners edit only
-  their own profile), **7.10** (storage follows the tables): each decides who may see or do
-  what; the test suite records the current reality for 7.3 so that tightening it later shows
-  up as a change.
+| Decision | What was applied |
+|---|---|
+| SECURITY-AUDIT 7.3, 7.10: office separation in the database | 0068: every office table and every child table is readable and writable only by that office; owners see both. Storage follows: a document is visible only to its record's office. A profile with no office counts as Dubai until an owner moves it (Settings, "Who can get in", new Office column). Non-owners no longer see the office switch. |
+| 7.7: money that only owners should see | 0069: payroll, partners and bank_accounts are owners-only; the Finance tabs for them are hidden from non-owners, and the bank figures on the home screen read "the owners' to see". |
+| 7.6: quotation approval by owners only | 0070: a quotation is marked approved by an owner; the status field does not offer it to anyone else. Approval of orders and quotations is for every owner: Charles, Chris once given owner rights, and anyone else made an owner. |
+| 7.8: non-owners edit only their own details | 0071: role, office and email can be changed only by an owner. |
+| F-045: one PO series for two companies | 0072: per-office order numbering; Dubai continues, Bruges starts PO-BE-0001. |
+| F-003: money out kept in dirhams only | 0073: a cost or salary is taken off a bank account in the account's own currency, the partner ledger and project actuals are in their office's money, and figures are converted only where they cross a currency line, at the rate in Settings. Labels say the currency. |
+| F-012: two suggested sell prices | 0074: the catalogue's "Sell" is the editor's figure (material at margin); the installation rate is shown separately. |
+| F-070: a second priced line silently becomes build-up | The rule stays, as Charles's quotations are written, and the section now says which line it moved and how to charge it. |
+
+**Left as they are, being structural choices rather than faults:** F-066 (the two sales
+funnels) and the second ledger next to Zoho, to revisit when Charles wants.
 
 MEDIUM and LOW findings outside the lists above remain open, except those that fell to the
 fixes listed (F-033 with F-006; F-069 e–g with C).

@@ -218,7 +218,7 @@ And a belt for every table: require a profile to exist at all, so a stray auth u
 no profile row can do nothing. Add to every policy's `USING`/`WITH CHECK` via the helper
 used in 7.3, which returns NULL (never true) for a user without a profile.
 
-### 7.3 Office separation in the database (*decision*)
+### 7.3 Office separation in the database (*decided 11 September 2026, applied in migration 0068 together with 7.10*)
 
 Helper:
 
@@ -273,11 +273,10 @@ create policy quotation_lines_via_parent on public.quotation_lines for all to au
 -- Then drop each child's *_all_authenticated policy.
 ```
 
-What changes for a `full` user if this is applied: the office switch in the bar would show
-an empty other office and an empty BOTH view, and BOTH-mode inserts would be refused
-rather than silently landing in the default office (see SCHEMA-AUDIT 6.2). The frontend
-should hide the switch for non-owners at the same time. This is why it is Charles's
-decision, not a code fix.
+As applied in 0068: `my_office_id()` treats a profile with no office as the first office
+(Dubai), so nobody is locked out the day it goes live; an owner moves people under
+Settings, "Who can get in", which gained an Office column. The app hides the office switch
+from non-owners and shows them their own office instead; BOTH is the owners' view.
 
 ### 7.4 Let every user number a quotation and an invoice (BREAKS today)
 
@@ -318,7 +317,7 @@ create trigger stock_out_needs_civil_defence before insert on public.stock_movem
   for each row execute function public.refuse_issue_of_held_stock();
 ```
 
-### 7.6 Quotation approval by owners only (*decision*)
+### 7.6 Quotation approval by owners only (*decided 11 September 2026, applied in migration 0070*)
 
 ```sql
 create or replace function public.guard_quotation_approval()
@@ -333,7 +332,7 @@ create trigger quotations_approval_is_the_owners before insert or update of stat
   for each row execute function public.guard_quotation_approval();
 ```
 
-### 7.7 Money that only owners should see (*decision*)
+### 7.7 Money that only owners should see (*decided 11 September 2026, applied in migration 0069*)
 
 ```sql
 -- payroll, partners, bank_accounts: read and write for owners only
@@ -353,7 +352,7 @@ If applied, the Finance tab's Salaries and Bank views must be hidden from non-ow
 `invoice_payments.bank_account_id` and `expenses.bank_account_id` still work because they
 store an id, not a read of the account.
 
-### 7.8 Non-owners edit only their own name, language and password
+### 7.8 Non-owners edit only their own name, language and password (*applied in migration 0071*)
 
 ```sql
 create or replace function public.guard_profile_role()
@@ -379,7 +378,7 @@ create policy spec_equivalents_delete on public.spec_equivalents for delete to a
 
 Or hide the Remember button for non-owners; one or the other.
 
-### 7.10 Storage follows the tables (*with 7.3 or 7.7*)
+### 7.10 Storage follows the tables (*applied in migration 0068*)
 
 Today every bucket is open to every login, which matches 2a. If 7.3 is applied, the
 document buckets should be scoped by joining the object's path prefix (the record id) to

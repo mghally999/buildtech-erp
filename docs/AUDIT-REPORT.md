@@ -109,22 +109,31 @@ Grouped by how much it matters to the business.
 - **Missing data sheets are flagged** everywhere a person would want to know.
 - **Building a quotation is easier** without any change to the printed sheet.
 
-## 4. Found, but left for Charles to decide
+## 4. The business decisions, taken and applied
 
-These are business decisions, not code faults. The exact database changes are written and
-ready; none has been applied.
+Charles decided these on 11 September 2026. Each is now built and tested; none is a code
+fault, each is a rule about how the company works.
 
-- **Should the two offices be walled off in the database?** Today the separation is enforced
-  in the screens, not in the database, so a determined person with the right tools could read
-  the other office's records. Closing this is a decision about how separate Dubai and Belgium
-  should really be.
-- **Should quotations need approval, like orders now do?** There is no approval step on a
-  quotation today.
-- **Should salaries, the partner ledger and bank balances be hidden from non-owners?** Today
-  any signed-in user can see them.
-- **The two overlapping sales funnels** (Visits and Pipeline) track the same companies in two
-  places and can drift apart.
-- **The second ledger** in the app duplicates what Zoho already does.
+- **The two offices are walled off in the database.** A person sees and writes only their
+  own office; an owner sees both. Documents follow their records. A person not yet given
+  an office counts as Dubai until an owner moves them, under Settings, "Who can get in".
+- **Approval is for the owners.** An order, and now a quotation too, is marked approved by
+  an owner only: Charles, Chris once he is given owner rights, and anyone else made an
+  owner. Nobody else is offered the button, and the database refuses it anyway.
+- **Salaries, the partner ledger and the bank balances are the owners' to see.** The
+  Finance tabs for them are gone for everyone else, and the home screen says so.
+- **A person who is not an owner can change only their own name, language and password.**
+- **Belgium keeps its books here.** A cost or a salary is taken off a bank account in the
+  account's own currency; a euro cost no longer takes 4.27 times as much off a Belgian
+  account. Project costs and the partner ledger are in their office's money.
+- **Orders are numbered by their office**, as quotations and invoices already were.
+- **The catalogue's suggested sell price is the quotation editor's figure**, with the
+  installation rate shown separately instead of folded in.
+- **A second priced line in a section still counts as build-up**, as your quotations are
+  written, and the section now says so and how to charge it instead.
+
+Left as they are, being structural choices worth a conversation rather than faults: the
+two sales funnels (Visits and Pipeline) and the ledger that duplicates Zoho.
 
 ## 5. What testing was done, and where
 
@@ -143,10 +152,10 @@ they were built so they cannot.
 
 ## 6. Risks that remain
 
-- **The office separation, the thin permission model, quotation approval, and hiding
-  salaries** are the decisions in section 4. Until Charles decides, they stay as they are.
 - **The two sales funnels** and **the second ledger duplicating Zoho** are structural choices
   worth revisiting.
+- **Everyone is Dubai until moved.** After the deploy, each Belgian user has to be moved to
+  Bruges once, under Settings, "Who can get in"; until then they see Dubai's records.
 - **There was no version history before this review.** Every change from here can be undone;
   everything before it cannot be compared against.
 - **The application is one very large file.** It works, but it is harder to change safely than
@@ -155,11 +164,11 @@ they were built so they cannot.
 ## 7. Recommended next steps, in order
 
 1. **Close the open sign-up** — it is a one-line setting and the biggest exposure.
-2. **Decide the office separation and the salary/ledger visibility**, and apply the ready-made
-   database rules for whatever Charles chooses.
+2. **Give Chris owner rights** (Settings, "Who can get in", "Give them the dials") so he can
+   approve orders and quotations, and **move each Belgian user to Bruges** on the same screen.
 3. **Get the two supplier sheets onto every product** — the flags now show exactly which are
    missing.
-4. **Decide on quotation approval** and on the two sales funnels.
+4. **Decide on the two sales funnels** and the ledger next to Zoho, when convenient.
 5. **Keep the version history going**, so future changes stay reversible and comparable.
 
 ## 8. Putting it live: the steps only you can take
@@ -167,8 +176,8 @@ they were built so they cannot.
 Everything above was built and proven on a separate test copy of the database. Nothing has
 been changed on the live system. To take it live, in this order:
 
-1. **Apply the nine database changes to the live project**, in numerical order, through the
-   Supabase SQL editor: `migrations/0059_…` to `migrations/0067_…`. Each one is written so
+1. **Apply the sixteen database changes to the live project**, in numerical order, through
+   the Supabase SQL editor: `migrations/0059_…` to `migrations/0074_…`. Each one is written so
    it can be run twice without harm, and each records itself in `applied_migrations`. Take
    a backup first (Dashboard → Database → Backups).
 2. **Close the open sign-up** in the live project's Authentication settings: turn off
@@ -187,7 +196,7 @@ been changed on the live system. To take it live, in this order:
 6. **Delete the test project** when you no longer need it, or keep it as the place to try
    things: the test suite can only ever run against it.
 
-What is deliberately **not** in this hand-over: the four decisions in section 4. The
-database rules for them are written in `docs/SECURITY-AUDIT.md` section 7 (7.3, 7.6, 7.7,
-7.8, 7.10) and wait for Charles's word.
+7. **On the first sign-in after the deploy**, go to Settings, "Who can get in": give Chris
+   owner rights, and set each Belgian colleague's office to Bruges. Until that is done a
+   person with no office works in Dubai.
 

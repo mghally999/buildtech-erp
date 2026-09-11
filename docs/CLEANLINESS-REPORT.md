@@ -4,8 +4,9 @@ The tests run against the isolated test project (`otwzrmwvvrtjosxgqhkb`), never 
 (`zlyqecpsgzgbpbikrlro`). This report proves the test database carries no leftover test data
 and the shipped files carry no test or debug artefacts.
 
-Last run: 11 September 2026, after the whole suite passed on the reviewer's machine
-(18 per-fix browser checks, then the 14 end-to-end journeys, then `tests/cleanliness_check.js`).
+Last run: 11 September 2026, after the whole suite passed on the reviewer's machine with
+Charles's decisions applied (24 per-fix and per-decision browser checks, then the 14
+end-to-end journeys, then `tests/cleanliness_check.js`).
 
 ## 1 & 2. No ZZTEST rows anywhere; no orphans in the audit tables
 
@@ -29,7 +30,8 @@ tables (`activity_log`, `correspondence`) specifically. Result of the run for th
   documents, 2 warehouses.
 - **activity_log and correspondence referencing ZZTEST:** 0.
 - **activity_log** fills up during testing (the log records every create and delete
-  automatically): 239 rows after the first full run, 68 after the run on 11 September.
+  automatically): 239 rows after the first full run, 68 and then 71 after the runs on
+  11 September.
   Because the test project has no real business activity, all of them were test noise
   pointing at now-deleted records, and would have shown as recent activity on the "Latest
   changes" screen. They were cleared each time; the log now reads **0**.
@@ -43,14 +45,15 @@ Deleting a test's rows does not un-issue a number. Quotation and invoice numbers
 from per-office counters that only ever move forward, so any quotation a test saved
 advanced its office's counter for good.
 
-| Office | Quotation numbers → next | Invoice numbers → next |
-|---|---|---|
-| Dubai (DXB) | 742 | 1 |
-| Bruges (BRU) | 1 | 6 |
+| Office | Quotation numbers → next | Invoice numbers → next | Order numbers → next |
+|---|---|---|---|
+| Dubai (DXB) | 744 | 1 | 1 |
+| Bruges (BRU) | 1 | 7 | 2 |
 
-Dubai's quotation counter advanced from 732 to **742** during the sweep: ten quotation
-numbers are now permanently used and cannot be reissued. Bruges issued five invoice numbers
-(next is 6). On the test project these gaps mean nothing; on production they would be
+Dubai's quotation counter advanced from 732 to **744** during the sweep: twelve quotation
+numbers are now permanently used and cannot be reissued. Bruges issued six invoice numbers
+(next is 7) and one order number (next is 2). Orders got their own per-office series in
+migration 0072. On the test project these gaps mean nothing; on production they would be
 missing numbers a client or auditor would notice.
 
 **This is the single strongest reason these tests must never run against the live system.**
