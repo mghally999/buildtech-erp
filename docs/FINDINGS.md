@@ -529,3 +529,52 @@ F-061 · F-062 · F-063
 Also carried from SECURITY-AUDIT for Phase 5 sequencing: 7.1 (views to `security_invoker`),
 7.9 (equivalents policy), 7.11–7.12 (auth settings, role check), and the *decision* items
 7.3, 7.6, 7.7, 7.8, 7.10.
+
+## J. Phase 5 outcome (11 September 2026)
+
+Every CRITICAL and HIGH finding that is not a *decision* item was fixed, one commit each,
+each verified in the browser against the test project (`tests/checks.js`) and, for the
+scope reader, against the hand-checked fixture in `tests/fixtures/`. The migrations were
+applied to the test project only; `docs/AUDIT-REPORT.md` §8 says how they go live.
+
+| Finding | Where it was fixed |
+|---|---|
+| F-001, F-022, F-023, F-026 (database side); SECURITY-AUDIT 7.1, 7.2, 7.4, 7.5, 7.9, 7.11, 7.12 | migrations 0059–0064 (`fix: F-001 F-022 F-023 F-026, SECURITY-AUDIT …`) |
+| F-074 (first-burst 401), invite/recovery gate lost on refresh | Phase 4 commit (`retryOnce`, `bt-needs-password`) |
+| F-020 / F-068 (order page shows no lines) | `fix: F-020 — order page shows its lines` |
+| F-006, F-033 (month keys, today) | `fix: F-006 F-033 — month keys and today() use the local date` |
+| F-007 (settings text → NaN) | `fix: F-007 — settings and VAT rate read and validated as numbers` |
+| F-004 (AED figures labelled EUR) | `fix: F-004 — dirham figures say AED whichever office is on screen` |
+| F-005 (BOTH sums mix currencies) | `fix: F-005 — the company view adds the offices up at the settings rate` |
+| F-008 (product_id never saved) | `fix: F-008 — quotation lines carry their product` |
+| F-025 (add-row failure blanks the screen) | `fix: F-025 — a refused add-a-row says so …` |
+| F-026 (held stock issued, screen side) | `fix: F-026 — held stock and more than is on hand cannot be issued …` |
+| F-042 (BOTH-mode inserts land in one office) | `fix: F-042 — a record made in the company view is filed under the person's own office` |
+| F-043 (payments unscoped) | `fix: F-043 — receipts are read through their invoice's office` |
+| F-021, F-024, F-027 (save can lose sections; stale draft; log churn) | migration 0065, `fix: F-021 F-024 F-027 — quotation save is one transaction, drafts are real drafts` |
+| F-002 (invoices Dubai-only) | migration 0066, `fix: F-002 — an invoice is numbered, taxed, headed and worded by its office` |
+| F-068 approval step, printable order (Charles's item 2) | migration 0067, `feat: Phase 5 B` |
+| F-069 a–j (scope reader; Charles's item 3) | `fix: Phase 5 C, F-069 a–j` and `tests/scope_fixture.js` |
+| F-071 (shipping request → order; Charles's item 4) | `feat: Phase 5 D` |
+| F-072 (create a product; Charles's item 5) | `feat: Phase 5 E` |
+| F-065 / F-067 (missing TDS/SDS; Charles's item 1) | `feat: Phase 5 F` |
+| F-073 friction, top three of section H (Charles's item 6): H-01 pick a product and have its line written, H-02 a new section starts from the previous area, H-03 save and print in one step with the colour blocks printing on their own; plus H-13's teaching placeholder | `feat: Phase 5 G` (printed sheet byte-for-byte unchanged) |
+
+**Left unapplied on purpose, because each changes a business rule only Charles can set.**
+The SQL for each is written in `docs/SECURITY-AUDIT.md` §7 and waits for his word:
+
+- **F-003** (money out is kept in dirhams only): fixing it means deciding whether the
+  Belgian books are kept in euros end to end, which changes every finance screen.
+- **F-070** (a second priced line in a section silently becomes build-up): the rule may be
+  intended; changing it changes how every existing quotation reads.
+- **F-012, F-045, F-066**: the two overlapping sales funnels and the second ledger next to
+  Zoho are structural choices, not faults.
+- **SECURITY-AUDIT 7.3** (office separation in the database), **7.6** (quotation approval by
+  owners only), **7.7** (money that only owners should see), **7.8** (non-owners edit only
+  their own profile), **7.10** (storage follows the tables): each decides who may see or do
+  what; the test suite records the current reality for 7.3 so that tightening it later shows
+  up as a change.
+
+MEDIUM and LOW findings outside the lists above remain open, except those that fell to the
+fixes listed (F-033 with F-006; F-069 e–g with C).
+
