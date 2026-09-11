@@ -159,20 +159,23 @@ checks.held_stock = async page => {
 };
 
 // F-042: in the company view a new record goes to the person's own office, and the header says so.
+// The company view is the owners' (0068), so the owner is moved to Bruges for the check and back after.
 checks.both_stamp = async page => {
   const [bru] = await sql("select id from offices where code='BRU'");
-  await sql(`alter table profiles disable trigger profiles_role_is_the_owners;
-    update profiles set office_id='${bru.id}' where email='sweep-full@example.com';
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const move = to => sql(`alter table profiles disable trigger profiles_role_is_the_owners;
+    update profiles set office_id='${to}' where email='sweep-owner@example.com';
     alter table profiles enable trigger profiles_role_is_the_owners`);
+  await move(bru.id);
   try {
-    await login(page, 'FULL'); await page.click('.offsw button:has-text("BOTH")'); await settle(1000);
+    await login(page, 'OWNER'); await page.click('.offsw button:has-text("BOTH")'); await settle(1000);
     const note = (await page.locator('.offnote').count()) ? await page.locator('.offnote').textContent() : '';
     assert(/Bruges/.test(note), `the header says where new records go (saw "${note}")`);
     await go(page, 'Finance'); await page.click('.subnav button:has-text("Bank accounts")'); await settle(1500);
     await page.click('button:has-text("Add account")'); await settle(1500);
     const rows = await sql("select office_id from bank_accounts where name='New account' order by created_at desc limit 1");
     assert(rows.length === 1 && rows[0].office_id === bru.id, "a record added in the company view is filed under the person's own office");
-  } finally { await sql("delete from bank_accounts where name='New account'"); }
+  } finally { await sql("delete from bank_accounts where name='New account'"); await move(dxb.id); }
 };
 
 // F-043: receipts are read through their invoice, so one office's chart does not show the other's.
@@ -252,7 +255,7 @@ checks.invoice_office = async page => {
   const [cl] = await sql(`insert into clients (name, kind, office_id) values ('ZZTEST Belgian client', 'client', '${bru.id}') returning id`);
   const field = label => page.locator(`.modal .field:has(> label:has-text("${label}"))`);
   try {
-    await login(page, 'FULL'); await page.click('.offsw button:has-text("BEL")'); await settle(800);
+    await login(page, 'FULL'); await settle(800);   // the full user works in Bruges and has no switch to press
     await go(page, 'Finance'); await page.click('.subnav button:has-text("Money in")'); await settle(1500);
     await page.click('button:has-text("New invoice")'); await settle(800);
     await field('Client').locator('select').selectOption({ label: 'ZZTEST Belgian client' });
@@ -552,6 +555,24 @@ checks.friction = async page => {
   } finally {
     await sql(`delete from quotations where id='${q.id}'`);
   }
+};
+
+// Charles's decisions (11 September 2026): what the database now refuses, attacked through the page's own client.
+checks.office_walls = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [p] = await sql(`insert into projects (name, status, value, office_id) values ('ZZTEST Dubai-only project', 'in_progress', 1, '${dxb.id}') returning id`);
+  try {
+    await login(page, 'FULL');   // a Bruges user
+    assert((await page.locator('.offsw').count()) === 0, 'a full user is not offered the office switch');
+    assert(/Bruges/.test(await page.locator('.offnote').textContent()), 'and is told which office they work in');
+    const seen = await page.evaluate(id => sb.from('projects').select('id').eq('id', id).then(r => (r.data || []).length), p.id);
+    assert(seen === 0, `a Dubai project is invisible to a Bruges user, even straight at the database (saw ${seen})`);
+    const wrote = await page.evaluate(id => sb.from('projects').insert({ name: 'ZZTEST smuggled', status: 'in_progress', value: 1, office_id: id })
+      .then(r => r.error ? 'refused' : 'written'), dxb.id);
+    assert(wrote === 'refused', `a Bruges user cannot file a record under Dubai (saw ${wrote})`);
+    const files = await page.evaluate(() => sb.storage.from('scope-docs').list('DXB').then(r => r.error ? 'refused' : (r.data || []).length));
+    assert(files === 'refused' || files === 0, `Dubai's scope documents are not listed for a Bruges user (saw ${files})`);
+  } finally { await sql("delete from projects where name like 'ZZTEST%'"); }
 };
 
 (async () => {

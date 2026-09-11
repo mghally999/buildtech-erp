@@ -18,7 +18,7 @@ production. Two safety walls enforce that:
 | `serve.js` | Static server that swaps in `config.local.js`. `node tests/serve.js [port]`. |
 | `smoke.js` | Signs in and shows the catalogue. `WHO=OWNER node tests/smoke.js`. |
 | `lib.js` | Shared helpers: `sql`, `login`, `go`, `settle`, `lit`. |
-| `checks.js` | One browser check per Phase 5 fix (18 of them). `node tests/checks.js [name…]`. |
+| `checks.js` | One browser check per Phase 5 fix and per applied decision (24 of them). `node tests/checks.js [name…]`. |
 | `scope_engine.js` / `scope_fixture.js` | The scope reader lifted out of `index.html`, checked against a hand-verified fixture for the Waterfront Market BOQ. `node tests/scope_fixture.js`. |
 | `apply_migrations.py` | Applies `migrations/*.sql` to the test project. `python3 tests/apply_migrations.py`. |
 | `e2e/` | The end-to-end journey suite (Phase 6), run with the Playwright test runner. |
@@ -43,7 +43,7 @@ production. Two safety walls enforce that:
 
 ```bash
 node tests/serve.js &                     # or let the e2e runner do it
-node tests/checks.js                       # the 18 per-fix checks
+node tests/checks.js                       # the 24 per-fix checks
 node tests/scope_fixture.js                # the offline scope reader fixture
 cd tests/e2e && ../node_modules/.bin/playwright test    # the seven journeys
 ```
@@ -54,7 +54,7 @@ cd tests/e2e && ../node_modules/.bin/playwright test    # the seven journeys
 |---|---|
 | `01-lifecycle` | client → visit → inquiry → quotation (3 lines / 2 sections) → project → milestones → order → stock in/out → invoice → payment, checking the quotation arithmetic, the invoice balance before and after payment, and stock on hand. |
 | `02-office-isolation` | a Dubai record and a Bruges record; each shows only in its own office view, both in the company view, each labelled in its own currency; the company view says where new records go. |
-| `03-permissions` | only an owner can approve an order (attacked through the page's own client, not just the UI); held stock cannot be issued; owner-only controls are hidden from a full user; and a documented known gap — office separation is not yet enforced by RLS. |
+| `03-permissions` | only an owner can approve an order (attacked through the page's own client, not just the UI); held stock cannot be issued; owner-only controls are hidden from a full user; and a Bruges user can neither read nor write a Dubai record, while an owner sees both (the office walls of migration 0068). |
 | `04-input-abuse` | empty, zero, negative, enormous, non-numeric and awkward text (emoji, Arabic, an apostrophe, a quote) on the new-product and stock forms; each is refused or handled safely, with no NaN and no blank screen. |
 | `05-session-refresh` | a hard refresh keeps you signed in; unsaved editing survives a refresh and is offered back; signing out in one tab logs the other out. |
 | `06-failure-offline` | a forced server error and an offline network both show a clear error and write nothing silently; the app recovers when back online. |

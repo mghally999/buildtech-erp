@@ -7427,7 +7427,7 @@ function ActivityAndBackup(){
    an owner. Somebody is added by inviting their email in Supabase Authentication, which is
    deliberately not a button here: creating logins is not something to do by accident, and
    the person doing it should be looking at the place the passwords live. */
-function AccessList({me}){
+function AccessList({me,offices}){
   const [rows,setRows]=useState(null); const [err,setErr]=useState(''); const [msg,setMsg]=useState('');
   const owner=me?.role==='owner';
   const load=useCallback(async()=>{
@@ -7436,6 +7436,15 @@ function AccessList({me}){
   },[]);
   useEffect(()=>{load();},[load]);
 
+  // which office a person works in decides what they can see (0068); owners see both
+  const setOffice=async(p,office_id)=>{
+    setErr(''); setMsg('');
+    const {error}=await sb.from('profiles').update({office_id:office_id||null}).eq('id',p.id);
+    if(error) return setErr(error.message);
+    const o=(offices||[]).find(x=>x.id===office_id);
+    setMsg((p.full_name||p.email)+' now works in '+(o?o.name:'the first office')+'.');
+    load();
+  };
   const setRole=async(p,role)=>{
     setErr(''); setMsg('');
     const {error}=await sb.from('profiles').update({role}).eq('id',p.id);
@@ -7457,15 +7466,19 @@ function AccessList({me}){
          : !rows.length ? html`<p class="muted">${
             'Nobody yet, which cannot be right since you are reading this. Run 0046 in Supabase.'}</p>`
          : html`<div class="tw"><table>
-            <thead><tr><th>${_t("Name")}</th><th>${_t("Email")}</th><th>${_t("Can do")}</th>${
+            <thead><tr><th>${_t("Name")}</th><th>${_t("Email")}</th><th>${_t("Can do")}</th><th>${_t("Office")}</th>${
               owner?html`<th></th>`:''}</tr></thead>
             <tbody>${rows.map(p=>html`<tr key=${p.id}>
               <td><b>${p.full_name||'—'}</b>${p.id===me?.id
                 ? html`<span class="muted">${' (you)'}</span>`:''}</td>
               <td class="muted">${p.email}</td>
               <td>${p.role==='owner'
-                ? 'Everything, including the system values'
-                : 'Everything except the system values'}</td>
+                ? 'Everything, including the system values, in both offices'
+                : 'Everything except the system values, in their own office'}</td>
+              <td>${owner
+                ? html`<select value=${p.office_id||''} onChange=${e=>setOffice(p,e.target.value)}>
+                    ${(offices||[]).map(o=>html`<option key=${o.id} value=${o.id}>${o.name}</option>`)}</select>`
+                : (((offices||[]).find(o=>o.id===p.office_id)||offices[0]||{}).name||'—')}</td>
               ${owner?html`<td class="n">${p.id===me?.id
                 ? html`<span class="muted">${'—'}</span>`
                 : html`<button class="btn sec sm" onClick=${()=>setRole(p,
@@ -7797,7 +7810,7 @@ function Settings({settings,reload,me,offices,reloadMe}){
       </div>
     </div>`}
 
-    ${tab==='people'  && html`<${AccessList} me=${me}/>`}
+    ${tab==='people'  && html`<${AccessList} me=${me} offices=${offices}/>`}
     ${tab==='system'  && html`<${ActivityAndBackup}/>`}
 
     ${tab==='account' && html`<div class="panel">
@@ -14326,10 +14339,13 @@ function App(){
   // No stored choice yet means we have never been told, so start on the office the person
   // belongs to. Worked out here rather than in an effect, because everything above this
   // line has already returned early and a hook cannot live below that.
-  const office = (officeCode==='ALL' ? null
-                  : offices.find(o=>o.code===officeCode)
-                    || (me && offices.find(o=>o.id===me.office_id))
-                    || offices[0] || null);
+  /* A person who is not an owner works in their own office and nowhere else. The
+     database enforces it (0068), so a switch would only ever show them an empty other
+     office. An owner chooses, and BOTH is the company view. */
+  const ownOffice = (me && offices.find(o=>o.id===me.office_id)) || offices[0] || null;
+  const office = (me && me.role!=='owner') ? ownOffice
+               : (officeCode==='ALL' ? null
+                  : offices.find(o=>o.code===officeCode) || ownOffice);
   const pickOffice = code => { setOfficeCode(code);
     try{ localStorage.setItem('bt-office',code); }catch(e){} };
   // every figure with no record of its own behind it is shown in the office's currency,
@@ -14408,7 +14424,7 @@ function App(){
           <button class="icon-btn railtoggle" title="Menu"
             onClick=${()=>setRailOpen(v=>!v)}>☰</button>
           <span class="where">BUILDTECH <b>//</b> ${LABEL[tab]||''}</span>
-          ${offices.length>1 && html`<div class="offsw" title="Which office you are working in">
+          ${offices.length>1 && me && me.role==='owner' && html`<div class="offsw" title="Which office you are working in">
             ${offices.map(o=>html`<button key=${o.id}
               class=${'offbtn'+(office&&office.code===o.code?' on':'')}
               onClick=${()=>pickOffice(o.code)}>${officeTag(o.code)}</button>`)}
@@ -14418,6 +14434,8 @@ function App(){
           ${officeCode==='ALL' && offices.length>1 && html`<span class="offnote"
             title="In the company view a new record is filed under your own office">${
             'New records go to '+((OFFICE_BY_ID[MY_OFFICE_ID]||{}).name||'your office')}</span>`}
+          ${offices.length>1 && me && me.role!=='owner' && office && html`<span class="offnote"
+            title="Your office. An owner can move you under Settings, Who can get in">${office.name}</span>`}
           <button class="cmdkey" onClick=${()=>setPal(true)}>
             <span>⌕</span>
             ${/* The long invitation is right on a laptop and absurd on a phone, where it
