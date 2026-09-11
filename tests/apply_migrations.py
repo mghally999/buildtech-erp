@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-"""Apply the SQL files in migrations/ to the TEST project, in order, idempotently.
+"""Apply the SQL files in migrations/ to a Supabase project, in order, idempotently.
 
-Each file is sent whole to the Management API SQL endpoint using the sweep token, which
-is scoped to the test project only and cannot reach production. Pass a single filename to
-apply just one; otherwise every migrations/*.sql not already in applied_migrations runs.
+Each file is sent whole to the Management API SQL endpoint. By default that is the TEST
+project with the sweep token, which cannot reach production. The deploy workflow points it
+at the live project with SUPABASE_PROJECT_REF, SUPABASE_ACCESS_TOKEN and ALLOW_PRODUCTION=yes.
+Pass filenames to apply just those; otherwise every migrations/*.sql not already recorded in
+applied_migrations runs.
 
 Usage: python3 tests/apply_migrations.py [migrations/0059_*.sql ...]
 """
 import glob, json, os, sys, time, urllib.request
 
-REF = 'otwzrmwvvrtjosxgqhkb'
-TOKEN = os.environ['SUPABASE_SWEEP_TOKEN']
+# The test project by default. The live project only when a deploy explicitly asks for it
+# (the GitHub workflow does, with the production token it holds as a secret), never by
+# accident from a laptop.
+TEST_REF = 'otwzrmwvvrtjosxgqhkb'
+PROD_REF = 'zlyqecpsgzgbpbikrlro'
+REF = os.environ.get('SUPABASE_PROJECT_REF', TEST_REF)
+if REF == PROD_REF and os.environ.get('ALLOW_PRODUCTION') != 'yes':
+    sys.exit('refusing to run against the live project: set ALLOW_PRODUCTION=yes to say you mean it')
+TOKEN = os.environ['SUPABASE_ACCESS_TOKEN'] if REF == PROD_REF else os.environ['SUPABASE_SWEEP_TOKEN']
 ROOT = os.path.join(os.path.dirname(__file__), '..')
 
 def sql(query):
@@ -39,3 +48,4 @@ for f in files:
         print(f'  {name}: already applied, skipping'); continue
     ok, out = sql(open(f).read())
     print(f'  {name}: {"OK" if ok else "FAIL " + str(out)[:400]}')
+    if not ok: sys.exit(1)

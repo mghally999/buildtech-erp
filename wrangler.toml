@@ -1,0 +1,9 @@
+# Build-Tech Pro on Cloudflare Workers: a static site served as Worker assets.
+# The name is the Worker that already serves the live site (its workers.dev address is
+# shiny-sound-c7b3.<account>.workers.dev). The deploy workflow copies the site files into
+# site/ and runs `wrangler deploy`; nothing here needs a build step.
+name = "shiny-sound-c7b3"
+compatibility_date = "2026-09-11"
+
+[assets]
+directory = "./site"

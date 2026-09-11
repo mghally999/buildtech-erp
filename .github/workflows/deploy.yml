@@ -1,0 +1,51 @@
+# Deploy Build-Tech Pro: the database changes to the live Supabase project, then the site
+# to Cloudflare. Runs on every push to main and on demand. Nothing runs against the live
+# project unless the four secrets below are set on this repository:
+#
+#   SUPABASE_ACCESS_TOKEN   a Supabase personal access token with write access
+#   SUPABASE_PROJECT_REF    zlyqecpsgzgbpbikrlro (the live project)
+#   CLOUDFLARE_API_TOKEN    a Cloudflare API token with Workers Scripts: Edit
+#   CLOUDFLARE_ACCOUNT_ID   the Cloudflare account that owns the Worker
+#
+# Order matters: the migrations go first, because the new index.html relies on them.
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy
+
+jobs:
+  database:
+    name: apply migrations to the live project
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_ENABLED == 'yes' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: run migrations 0059 onwards, in order, skipping the ones already applied
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          ALLOW_PRODUCTION: "yes"
+        run: python3 tests/apply_migrations.py
+
+  site:
+    name: publish the site to Cloudflare
+    needs: database
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_ENABLED == 'yes' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: gather the site files, and nothing else
+        run: |
+          mkdir -p site
+          cp index.html config.js sw.js _headers manifest.webmanifest logo.png logo-mark.png site/
+          cp -r fonts icons vendor site/
+          ls -R site | head -40
+      - name: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
