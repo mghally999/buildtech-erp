@@ -1757,6 +1757,8 @@ main{position:relative}
     box-shadow:none !important;text-shadow:none !important;
     backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
     animation:none !important;color:#000 !important;
+    /* print the blue and gold blocks without the dialog's "Background graphics" box */
+    print-color-adjust:exact;-webkit-print-color-adjust:exact;
   }
   /* A bill long enough to need two pages must break in a sensible place. A section
      cut in half, or a subtotal orphaned from its total, is worse than a second page. */
@@ -11329,8 +11331,15 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
   const coTerms   = oc('terms','terms_conditions');
   const coLicence = (qOffice && qOffice.code!=='DXB') ? '' : cfg('trade_licence');
 
-  const addSec=()=>setSecs(v=>[...v,{id:'new'+Date.now(),title:'',position:v.length+1,lines:[
-    {id:'l'+Date.now(),description:'Supply and Install',unit:'sq.m',quantity:'',sell_rate:'',cost_rate:'',is_spec_note:false,is_provisional:false,position:1}]}]);
+  const addSec=()=>setSecs(v=>{
+    // A new section usually covers the same area, in the same unit, as the one before it,
+    // so it starts from the previous section's figures rather than blank. Both are editable.
+    const prev=v[v.length-1];
+    const pl=prev&&prev.lines.find(l=>!l.is_spec_note);
+    return [...v,{id:'new'+Date.now(),title:'',position:v.length+1,lines:[
+      {id:'l'+Date.now(),description:'Supply and Install',unit:(pl&&pl.unit)||'sq.m',
+       quantity:(pl&&pl.quantity)||'',sell_rate:'',cost_rate:'',is_spec_note:false,is_provisional:false,position:1}]}];
+  });
   const upSec=(i,k,v)=>setSecs(a=>a.map((s,n)=>n===i?{...s,[k]:v}:s));
   const delSec=i=>setSecs(a=>a.filter((_,n)=>n!==i));
   const addLine=(i,note)=>setSecs(a=>a.map((s,n)=>n!==i?s:{...s,lines:[...s.lines,
@@ -11697,6 +11706,9 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
     dropDraft(); setRestored('');
     setBusy(false); setMsg(newRef ? 'Saved as '+newRef+'.' : 'Saved.');
   };
+  // Save, then open the print dialog, in one step. The colour blocks print on their own
+  // now (see print-color-adjust below), so this is the whole route from editing to a PDF.
+  const savePrint=async()=>{ await save(); setTimeout(printOnePage, 80); };
   const remove=async()=>{
     if(!q.id){ dropDraft(); back(); return; }
     if(!confirm('Delete quotation '+q.reference+'? The number stays used and is never reissued.')) return;
@@ -11732,8 +11744,10 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
           title=${q.id?'Work the cargo out of this quotation and ask a forwarder for a rate'
                      :'Save first'}>${shipOpen?'Hide shipping':'Shipping request'}</button>
         <button class="btn sec" onClick=${printOnePage} disabled=${!q.id}
-          title=${q.id?'Turn on Background graphics in the print dialog, or the blue and gold blocks drop out'
+          title=${q.id?'Open the print dialog to save this as a PDF'
                      :'Save first, then the number is issued'}>${_t("PDF")}</button>
+        <button class="btn sec" onClick=${savePrint} disabled=${busy}
+          title="Save the quotation and open the print dialog in one step">${_t("Save & PDF")}</button>
         <button class="btn" onClick=${save} disabled=${busy}>${busy?_t('Saving…'):_t('Save')}</button>
       </div>
     </div>
@@ -11907,7 +11921,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
         </div>
         ${s.lines.map((l,j)=>l.is_spec_note ? html`
           <div class="lrow note" key=${l.id}>
-            <textarea placeholder="${_t("Product specification text, not priced")}" value=${l.description}
+            <textarea placeholder="${_t("Product name : Approx. 2,50 kg/m² — select the name and press ⌘B to bold it")}" value=${l.description}
               list="prodlist" onInput=${e=>upLine(i,j,'description',e.target.value)}
               onKeyDown=${boldKey(v=>upLine(i,j,'description',v))}></textarea>
             <div style=${{display:'flex',gap:'4px'}}>

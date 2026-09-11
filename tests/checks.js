@@ -522,6 +522,38 @@ checks.missing_sheets = async page => {
   }
 };
 
+// Phase 5 G (Charles item 6): the quotation editor is easier without changing the sheet.
+checks.friction = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-FRICT', 4.27, '${dxb.id}', 'ZZTEST friction') returning id`);
+  const [sec] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Roof') returning id`);
+  await sql(`insert into quotation_lines (section_id, position, description, unit, quantity, sell_rate) values ('${sec.id}', 1, 'Supply and Install', 'm²', 500, 65.8)`);
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Quotations');
+    await page.locator('tr', { hasText: 'ZZTEST-Q-FRICT' }).locator('td').first().click();
+    await page.waitForSelector('button:has-text("Add section")', { timeout: 15000 }); await settle(800);
+    // H-02: a new section defaults its area and unit from the one before
+    await page.click('button:has-text("Add section")'); await settle(500);
+    const units = await page.$$eval('input[placeholder="sq.m"]', els => els.map(e => e.value));
+    assert(units.length === 2 && units[1] === 'm²', `a new section copies the previous unit (saw ${JSON.stringify(units)})`);
+    const qtys = await page.$$eval('input[type=number][placeholder="0"]', els => els.map(e => e.value));
+    assert(qtys.length >= 2 && qtys[1] === '500', `and the previous quantity (saw ${JSON.stringify(qtys)})`);
+    // H-13: the spec-note box teaches the convention
+    await page.locator('button:has-text("Add spec note")').first().click(); await settle(400);
+    const ph = await page.locator('.lrow.note textarea').first().getAttribute('placeholder');
+    assert(/Approx\. 2,50 kg\/m²/.test(ph || '') && /⌘B/.test(ph || ''), `the spec-note box teaches the convention (saw "${ph}")`);
+    // H-03: Save & PDF saves in one step (print dialog stubbed so headless does not block)
+    await page.evaluate(() => { window.print = () => {}; });
+    assert(await page.locator('button:has-text("Save & PDF")').count() === 1, 'a "Save & PDF" button is offered');
+    await page.click('button:has-text("Save & PDF")'); await settle(2500);
+    const [after] = await sql(`select updated_at from quotations where id='${q.id}'`);
+    assert(!!after.updated_at, 'Save & PDF saved the quotation');
+  } finally {
+    await sql(`delete from quotations where id='${q.id}'`);
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
