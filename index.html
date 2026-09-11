@@ -3243,7 +3243,8 @@ function Operations({go,settings}){
       held.length?held.length+' '+plural(held.length,'product')+' held':'All clear',held.length>0],
     ['approvals','✓','Approvals',String(d.ap.filter(x=>x.status!=='approved').length),
       'Outstanding with an authority',d.ap.some(x=>x.has_expired)],
-    ['finance','₳','Finance',AED0(bank),'In the bank',overdue.length>0],
+    ['finance','₳','Finance',MY_ROLE==='owner'?AED0(bank):AED0(owed),
+      MY_ROLE==='owner'?'In the bank':'Owed to us',overdue.length>0],
     ['clients','◉','Clients','—','Who we sell to',false],
     ['catalogue','⬚','Catalogue','132','Products, sheets and codes',
       d.dw.some(x=>x.state==='expired')],
@@ -3255,8 +3256,10 @@ function Operations({go,settings}){
 
     <div class="ops-hero">
       <div class="vital">
-        <div class="vk">In the bank</div><div class="vv">${AED0(bank)}</div>
-        <div class="vs">Across ${d.cp.length} ${plural(d.cp.length,'account')}${bankNote(d.cp)}</div>
+        <div class="vk">In the bank</div><div class="vv">${MY_ROLE==='owner' ? AED0(bank) : '—'}</div>
+        <div class="vs">${MY_ROLE==='owner'
+          ? 'Across '+d.cp.length+' '+plural(d.cp.length,'account')+bankNote(d.cp)
+          : 'The owners see the bank'}</div>
         <${Spark} bars=${inShape}/>
       </div>
       <div class=${'vital'+(overdue.length?' hot':'')}>
@@ -3408,8 +3411,9 @@ function Dashboard({go,settings}){
           :cash.invoiced?cash.invoiced+' '+plural(cash.invoiced,'invoice')+' open, '+fin.live+' live '+plural(fin.live,'project')
           :'Invoiced and not yet paid, '+fin.live+' live '+(fin.live===1?'project':'projects')}</div></div>
       <div class="card card-click" onClick=${()=>go('finance')}><div class="k">Cash position</div>
-        <div class="v">${AED0(cash.bank)}</div>
-        <div class="s">${cash.accounts?'Across '+cash.accounts+' bank '+(cash.accounts===1?'account':'accounts')
+        <div class="v">${MY_ROLE==='owner' ? AED0(cash.bank) : '—'}</div>
+        <div class="s">${MY_ROLE!=='owner' ? 'The owners see the bank'
+                        : cash.accounts?'Across '+cash.accounts+' bank '+(cash.accounts===1?'account':'accounts')
                         :'No bank account set up yet'}</div></div>
       ${order.open>0 && html`
         <div class=${'card card-click '+(order.late?'alert':'')} onClick=${()=>go('orders')}>
@@ -11809,7 +11813,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
           <input type="date" value=${q.valid_until||''} onInput=${e=>set('valid_until',e.target.value)}/></div>
         <div class="field"><label>${_t("Status")}</label>
           <select value=${q.status} onChange=${e=>set('status',e.target.value)}>
-            ${QSTATUS.map(s=>html`<option key=${s} value=${s}>${_t(s[0].toUpperCase()+s.slice(1))}</option>`)}
+            ${QSTATUS.map(s=>html`<option key=${s} value=${s}
+              disabled=${s==='approved' && MY_ROLE!=='owner' && q.status!=='approved'}>${_t(s[0].toUpperCase()+s.slice(1))}</option>`)}
           </select></div>
         <div class="field"><label>${_t("Revision")}</label>
           <input type="text" placeholder="blank, or Rev B" value=${q.revision||''}
@@ -12309,9 +12314,11 @@ function inWords(n, cur){
 
 function Finance({rate,settings}){
   const [view,setView]=useState('overview');
+  // salaries, the partner ledger and the bank are the owners' to see (0069)
   const VIEWS=[['overview','Overview'],['invoices','Money in'],['costs','Money out'],
                ['committed','Coming up'],
-               ['people','Salaries and partners'],['banks','Bank accounts']];
+               ['people','Salaries and partners'],['banks','Bank accounts']]
+    .filter(([k])=>MY_ROLE==='owner' || !['people','banks'].includes(k));
   return html`
     <div class="page-head"><h1>${_t("Finance")}</h1></div>
     <div class="subnav">
@@ -12590,10 +12597,12 @@ function FinanceOverview({go}){
   return html`
     ${err && html`<div class="err">${err}</div>`}
     <div class="cards">
-      <div class="card card-click" onClick=${()=>go('banks')}><div class="k">In the bank</div>
+      ${MY_ROLE==='owner' ? html`<div class="card card-click" onClick=${()=>go('banks')}><div class="k">In the bank</div>
         <div class="v">${AED0(bank)}</div>
         <div class="s">${d.cash.length?'Across '+d.cash.length+' '+(d.cash.length===1?'account':'accounts')
-                        :'No account set up yet'}${bankNote(d.cash)}</div></div>
+                        :'No account set up yet'}${bankNote(d.cash)}</div></div>`
+      : html`<div class="card"><div class="k">In the bank</div><div class="v">—</div>
+        <div class="s">The bank balances are the owners' to see</div></div>`}
       <div class=${'card card-click '+(overdue.length?'alert':owed>0?'':'okc')} onClick=${()=>go('invoices')}>
         <div class="k">Owed to us</div><div class="v">${AED0(owed)}</div>
         <div class="s">${overdue.length?overdue.length+' past the due date'
@@ -12622,7 +12631,9 @@ function FinanceOverview({go}){
               ${AED0(Math.abs(nz(p.balance)),officeCur(p.office_id))}</b>
             <div class="sub">${owedWords(nz(p.balance))}</div></div>
         </div>`)
-        : html`<div class="empty">No partners set up yet. Add them under Salaries and partners.</div>`}
+        : html`<div class="empty">${MY_ROLE==='owner'
+            ? 'No partners set up yet. Add them under Salaries and partners.'
+            : 'The partner ledger is the owners\u2019 to see.'}</div>`}
       ${d.led.length>0 && html`<div class="panel-body" style=${{borderTop:'1px solid var(--rule)'}}>
         <p class="muted" style=${{margin:0}}>${'Everyone should carry their ownership share of what the company has needed so far. This updates itself every time a cost is entered against a partner, so it never drifts the way a spreadsheet does.'}</p>
       </div>`}

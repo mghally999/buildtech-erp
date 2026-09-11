@@ -575,6 +575,42 @@ checks.office_walls = async page => {
   } finally { await sql("delete from projects where name like 'ZZTEST%'"); }
 };
 
+checks.owner_money = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [bru] = await sql("select id from offices where code='BRU'");
+  await sql(`insert into payroll (person, kind, amount, office_id) values ('ZZTEST Someone', 'salary', 1000, '${bru.id}')`);
+  await sql(`insert into bank_accounts (name, currency, opening_balance, office_id) values ('ZZTEST BRU account', 'EUR', 500, '${bru.id}')`);
+  try {
+    await login(page, 'FULL');   // Bruges, not an owner
+    const pay = await page.evaluate(() => sb.from('payroll').select('id').then(r => (r.data || []).length));
+    const bank = await page.evaluate(() => sb.from('bank_accounts').select('id').then(r => (r.data || []).length));
+    assert(pay === 0 && bank === 0, `salaries and bank accounts of their own office are hidden from a non-owner (saw ${pay}, ${bank})`);
+    await go(page, 'Finance');
+    const tabs = (await page.locator('.subnav button').allTextContents()).join('|');
+    assert(!/Salaries|Bank accounts/.test(tabs), `the salary and bank tabs are not offered (saw ${tabs})`);
+    const card = (await page.locator('.cards .card', { hasText: 'In the bank' }).textContent()).replace(/\s+/g, ' ');
+    assert(/owners/.test(card), `the bank card says it is the owners' (saw "${card}")`);
+  } finally { await sql("delete from payroll where person like 'ZZTEST%'; delete from bank_accounts where name like 'ZZTEST%'"); }
+};
+
+checks.quote_approval = async page => {
+  const [bru] = await sql("select id from offices where code='BRU'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name, status) values ('ZZTEST-Q-APPR', 1, '${bru.id}', 'ZZTEST approval', 'sent') returning id`);
+  try {
+    await login(page, 'FULL');
+    const refused = await page.evaluate(id => sb.from('quotations').update({ status: 'approved' }).eq('id', id).then(r => r.error ? r.error.message : 'allowed'), q.id);
+    assert(/Only an owner can mark a quotation approved/.test(refused), `a full user cannot mark a quotation approved (saw "${refused}")`);
+    await go(page, 'Quotations'); await page.locator('tr', { hasText: 'ZZTEST-Q-APPR' }).locator('td').nth(2).click();
+    await page.waitForSelector('button:has-text("Save")', { timeout: 15000 }); await settle(1000);
+    assert(await page.locator('.field:has(> label:has-text("Status")) select option[value="approved"]').isDisabled(), 'and the status field does not offer it');
+    const own = await page.evaluate(() => sb.from('profiles').update({ role: 'owner' }).eq('email', 'sweep-full@example.com').then(r => r.error ? r.error.message : 'allowed'));
+    assert(/Only an owner can change/.test(own), `a full user cannot make themselves an owner (saw "${own}")`);
+    const mv = await page.evaluate(id => sb.from('profiles').update({ office_id: id }).eq('email', 'sweep-full@example.com').then(r => r.error ? r.error.message : 'allowed'),
+      (await sql("select id from offices where code='DXB'"))[0].id);
+    assert(/Only an owner can move/.test(mv), `nor move themselves to another office (saw "${mv}")`);
+  } finally { await sql(`delete from quotations where id='${q.id}'`); }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
