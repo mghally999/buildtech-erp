@@ -4726,6 +4726,20 @@ function Stock(){
   const held=detail.filter(r=>r.blocked);
   const heldText = sumByUnit(held) || '0';
 
+  /* Recording a movement or a reorder level changes the stock figures and nothing else, so
+     only those are read again. Reloading the whole screen threw away anything typed on the
+     warehouses below and not yet saved. */
+  const refreshStock=async()=>{
+    const [sp,mv,sd]=await Promise.all([
+      sb.from('stock_position').select('*'),
+      sb.from('stock_movements').select('*, products(name), warehouses(name), projects(name)')
+        .order('created_at',{ascending:false}).limit(25),
+      sb.from('stock_detail').select('*')]);
+    const e=sp.error||mv.error||sd.error; if(e) setErr(e.message);
+    if(sp.data) setPos(sp.data);
+    if(mv.data) setMoves(mv.data);
+    if(sd.data) setDetail(sd.data);
+  };
   const record=async()=>{
     setErr(''); setMsg('');
     const prod=prods.find(x=>x.name===f.product.trim());
@@ -4753,7 +4767,7 @@ function Stock(){
     setMsg((f.direction==='in'?'Received ':'Issued ')+f.quantity+' of '+prod.name+'.');
     setF({product:'',warehouse_id:f.warehouse_id,direction:f.direction,quantity:'',
           project_id:'',reference:f.reference,note:''});
-    load();
+    refreshStock();
   };
   const upW=(i,k,v)=>setWhs(a=>a.map((x,n)=>n===i?{...x,[k]:v}:x));
   const saveWhs=async()=>{
@@ -4774,8 +4788,11 @@ function Stock(){
   const setReorder=async(r,val)=>{
     const {data:rowsS}=await sb.from('stock').select('id').eq('product_id',r.product_id);
     if(!rowsS||!rowsS.length){setErr('Record a movement for this product first, so it has a stock record.');return;}
-    for(const s of rowsS) await sb.from('stock').update({reorder_level:Number(val)||0}).eq('id',s.id);
-    load();
+    for(const s of rowsS){
+      const {error}=await sb.from('stock').update({reorder_level:Number(val)||0}).eq('id',s.id);
+      if(error){ setErr(error.message); return; }
+    }
+    refreshStock();
   };
 
   return html`
@@ -12819,6 +12836,17 @@ function Costs({rate}){
   const [invBusy,setInvBusy]=useState('');  // said on the button while it reads
   const [filled,setFilled]=useState({});    // the boxes it filled, marked until they are changed
   const readRef=useRef(null);
+  /* The button appears once the reader is switched on, so nobody is offered something that
+     can only say no. An empty request is answered "send a file" by a reader that has its key
+     and "not switched on" by one that has not, and nothing is read or paid for either way. */
+  const [invReady,setInvReady]=useState(false);
+  useEffect(()=>{ let live=true; (async()=>{
+    try{
+      const {error}=await sbRaw.functions.invoke('read-invoice',{body:{}});
+      const status=error && error.context && error.context.status;
+      if(live) setInvReady(status===400);
+    }catch(e){ if(live) setInvReady(false); }
+  })(); return ()=>{ live=false; }; },[]);
   /* A screenshot pasted anywhere on this screen is read. Pasting text into a box still
      pastes the text: only a paste that carries a picture or a PDF, and no text for a box
      to take, goes to the reader. */
@@ -12892,7 +12920,7 @@ function Costs({rate}){
     }catch(e){ setErr((e&&e.message)||String(e)); }
     setInvBusy('');
   };
-  readRef.current = readInvoice;
+  readRef.current = invReady ? readInvoice : null;
 
   const add=async()=>{
     if(!f.description.trim()) return setErr('Say what the money was for.');
@@ -12930,18 +12958,18 @@ function Costs({rate}){
     ${msg && html`<div class="ok">${msg}</div>`}
 
     <div class="panel"
-      onDragOver=${e=>{ if(e.dataTransfer && [...(e.dataTransfer.types||[])].includes('Files')) e.preventDefault(); }}
+      onDragOver=${e=>{ if(invReady && e.dataTransfer && [...(e.dataTransfer.types||[])].includes('Files')) e.preventDefault(); }}
       onDrop=${e=>{ const file=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-                    if(file){ e.preventDefault(); readInvoice(file); } }}>
+                    if(file && invReady){ e.preventDefault(); readInvoice(file); } }}>
       <div class="panel-head"><h2>${_t("Add a cost")}</h2>
         ${/* The invoice fills the form in: a PDF, a photo, or a screenshot dropped here or
               pasted with Ctrl+V. Nothing is saved until Add cost is pressed. */''}
-        <label class="btn sec sm sp invpick" style=${{cursor:invBusy?'wait':'pointer'}}
+        ${invReady && html`<label class="btn sec sm sp invpick" style=${{cursor:invBusy?'wait':'pointer'}}
           title="Choose a PDF, a photo or a screenshot of the invoice. You can also drop it on this box, or paste a screenshot with Ctrl+V.">
           ${invBusy || _t('Read an invoice')}
           <input type="file" accept="application/pdf,image/*" style=${{display:'none'}} disabled=${!!invBusy}
             onChange=${e=>{ const file=e.target.files&&e.target.files[0]; e.target.value=''; if(file) readInvoice(file); }}/>
-        </label></div>
+        </label>`}</div>
       <div class="panel-body">
         ${inv && html`<div class="flagbox invread">
           ${'Read from '+inv.file+(inv.supplier?': '+inv.supplier:'')
@@ -14113,9 +14141,11 @@ function ApprovalPage({id,prods,whs,clients,back}){
         ${reqs.map(r=>html`<div class=${'reqrow'+(r.provided?'':' owed')} key=${r.id}>
           <button class="reqtick" title=${r.provided?'Mark as not sent':'Mark as sent'}
             onClick=${async()=>{
-              await sb.from('approval_requirements').update(
-                {provided:!r.provided, provided_on:!r.provided?today():null}).eq('id',r.id);
-              load();
+              const patch={provided:!r.provided, provided_on:!r.provided?today():null};
+              const {error}=await sb.from('approval_requirements').update(patch).eq('id',r.id);
+              if(error) return setErr(error.message);
+              // only this line changes; the approval above keeps whatever is being typed on it
+              setReqs(v=>v.map(x=>x.id===r.id?{...x,...patch}:x));
             }}>${r.provided?'✓':''}</button>
           <div>
             <div class="rqt">${r.title}</div>

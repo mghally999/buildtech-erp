@@ -799,9 +799,13 @@ checks.invoice_reader_ui = async page => {
   let sent = null, reply = answer;
   await page.route('**/functions/v1/read-invoice', async route => {
     if (route.request().method() === 'OPTIONS') return route.continue();
-    sent = route.request().postDataJSON();
-    await route.fulfill({ status: 200, contentType: 'application/json',
-      headers: { 'Access-Control-Allow-Origin': 'http://127.0.0.1:5173' }, body: JSON.stringify({ invoice: reply }) });
+    const body = route.request().postDataJSON() || {};
+    const cors = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:5173' };
+    // the page asks, with nothing attached, whether the reader is switched on
+    if (!body.data) return route.fulfill({ status: 400, contentType: 'application/json', headers: cors,
+      body: JSON.stringify({ error: 'Send a PDF, or a JPEG, PNG, WebP or GIF picture of the invoice.' }) });
+    sent = body;
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: JSON.stringify({ invoice: reply }) });
   });
   const picture = await invoicePicture(page.context().browser(), { supplier: 'Green Ocean Businessmen Services FZCO',
     number: 'GO-INV-4471', dateText: '03/09/2026', dueText: '03/10/2026', item: 'Trade licence renewal package',
@@ -809,6 +813,8 @@ checks.invoice_reader_ui = async page => {
   try {
     await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
     await go(page, 'Finance'); await page.click('.subnav button:has-text("Money out")'); await settle(1500);
+    await page.waitForSelector('label.invpick', { timeout: 15000 });
+    assert(true, 'a reader that is switched on is offered on Money out');
     await page.locator('label.invpick input[type=file]').setInputFiles({ name: 'invoice.png', mimeType: 'image/png', buffer: picture });
     await page.waitForSelector('.flagbox.invread', { timeout: 20000 }); await settle(400);
     assert(sent && sent.media_type === 'image/jpeg' && sent.data.length > 1000, `the picture was sent as a JPEG (saw ${sent && sent.media_type})`);
@@ -871,17 +877,18 @@ checks.invoice_reader_live = async page => {
     number: 'GO-INV-4471', dateText: '03/09/2026', dueText: '03/10/2026', item: 'Trade licence renewal package',
     subtotalText: '16,523.81', vatText: '826.19', totalText: '17,350.00' });
   await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
-  await go(page, 'Finance'); await page.click('.subnav button:has-text("Money out")'); await settle(1500);
+  await go(page, 'Finance'); await page.click('.subnav button:has-text("Money out")'); await settle(3000);
+  if (!(await page.locator('label.invpick').count())) {
+    const [{ n }] = await sql("select count(*)::int as n from expenses where description like 'ZZTEST%'");
+    assert(n === 0, 'without its key the reader is not offered on Money out, and nothing was written');
+    console.log('    (the Anthropic key is not set on the test function yet, so the reading itself was not exercised)');
+    return;
+  }
   const started = Date.now();
   await page.locator('label.invpick input[type=file]').setInputFiles({ name: 'invoice.png', mimeType: 'image/png', buffer: picture });
   await page.waitForFunction(() => document.querySelector('.flagbox.invread') || document.querySelector('.err'), null, { timeout: 150000 });
   const seconds = Math.round((Date.now() - started) / 100) / 10;
   const err = (await page.locator('.err').allTextContents()).join(' | ');
-  if (/not switched on yet/.test(err)) {
-    assert(true, `without its key the reader says it is not switched on (${seconds}s)`);
-    console.log('    (the Anthropic key is not set on the test function yet, so the reading itself was not exercised)');
-    return;
-  }
   assert(!err, `no error from the live reader (saw "${err}")`);
   const v = await formValues(page);
   const note = (await page.locator('.flagbox.invread').innerText()).replace(/\s+/g, ' ');
@@ -892,6 +899,69 @@ checks.invoice_reader_live = async page => {
   assert(v['Date'] === '2026-09-03', `03/09/2026 was read day first (saw "${v['Date']}")`);
   assert(/826\.19/.test(note), `the VAT was read (saw "${note}")`);
   console.log(`    (read in ${seconds}s; category "${v['Category']}"; note: ${note.slice(0, 160)})`);
+};
+
+// Recording a movement or a reorder level reloaded the whole Stock screen and threw away
+// unsaved typing on the warehouses; ticking a requirement did the same to an approval's form.
+checks.stock_keeps_typing = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [wh] = await sql(`insert into warehouses (name, dcd_certified, dcd_certificate_ref, dcd_expiry, office_id)
+    values ('ZZTEST WH Keep', true, 'ZZTEST', current_date + 365, '${dxb.id}') returning id`);
+  const [prod] = await sql(`insert into products (category, name, dcd_approved, dcd_expiry)
+    values ((select category from products limit 1), 'ZZTEST Stock Keep', true, current_date + 365) returning id`);
+  await sql(`insert into stock_movements (product_id, warehouse_id, direction, quantity, office_id) values ('${prod.id}', '${wh.id}', 'in', 10, '${dxb.id}')`);
+  const whPanel = () => page.locator('.panel:has(h2:has-text("Warehouses"))');
+  const noteOfTest = async () => {
+    const names = await whPanel().locator('.field:has(> label:has-text("Name")) input').evaluateAll(els => els.map(e => e.value));
+    const i = names.indexOf('ZZTEST WH Keep');
+    return i < 0 ? null : whPanel().locator('.field:has(> label:has-text("Notes")) input').nth(i);
+  };
+  const field = l => page.locator(`.field:has(> label:has-text("${l}"))`).first();
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Stock'); await settle(1500);
+    await (await noteOfTest()).fill('ZZTEST unsaved note');
+    await field('Product').locator('input').fill('ZZTEST Stock Keep');
+    await field('Warehouse').locator('select').selectOption({ label: 'ZZTEST WH Keep' });
+    await field('In or out').locator('select').selectOption('in');
+    await field('Quantity').locator('input').fill('5');
+    await page.click('button:has-text("Record movement")'); await settle(2000);
+    const ok = (await page.locator('.ok').allTextContents()).join(' | ');
+    assert(/Received 5 of ZZTEST Stock Keep/.test(ok), `the movement was recorded (saw "${ok}")`);
+    assert(await (await noteOfTest()).inputValue() === 'ZZTEST unsaved note', 'recording a movement keeps the unsaved warehouse note');
+    const reorderBox = page.locator('tr', { hasText: 'ZZTEST Stock Keep' }).locator('input').first();
+    await reorderBox.fill('3'); await reorderBox.press('Tab'); await settle(2000);
+    const [st] = await sql(`select reorder_level from stock where product_id='${prod.id}' and warehouse_id='${wh.id}'`);
+    assert(st && Number(st.reorder_level) === 3, `the reorder level was saved (saw ${st && st.reorder_level})`);
+    assert(await (await noteOfTest()).inputValue() === 'ZZTEST unsaved note', 'setting a reorder level keeps it too');
+  } finally {
+    await sql(`delete from stock_movements where product_id='${prod.id}'; delete from stock where product_id='${prod.id}';
+      delete from products where id='${prod.id}'; delete from warehouses where id='${wh.id}'`);
+  }
+};
+
+checks.approval_keeps_typing = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [ap] = await sql(`insert into approvals (title, kind, status, office_id) values ('ZZTEST Approval Keep', 'other', 'submitted', '${dxb.id}') returning id`);
+  await sql(`insert into approval_requirements (approval_id, position, title) values ('${ap.id}', 1, 'ZZTEST Req 1'), ('${ap.id}', 2, 'ZZTEST Req 2')`);
+  const next = () => page.locator('.field:has(> label:has-text("Next action")) input').first();
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Approvals'); await settle(1000);
+    await page.locator('tr', { hasText: 'ZZTEST Approval Keep' }).locator('td').nth(1).click();
+    await page.waitForSelector('.reqrow', { timeout: 15000 }); await settle(500);
+    await next().fill('ZZTEST unsaved next step');
+    await page.locator('.reqrow', { hasText: 'ZZTEST Req 1' }).locator('button.reqtick').click(); await settle(1500);
+    assert(await next().inputValue() === 'ZZTEST unsaved next step', 'ticking a requirement keeps the unsaved next action');
+    const tick = await page.locator('.reqrow', { hasText: 'ZZTEST Req 1' }).locator('button.reqtick').innerText();
+    assert(tick.trim() === '✓', `the requirement shows as sent (saw "${tick}")`);
+    const [rq] = await sql(`select provided, provided_on from approval_requirements where approval_id='${ap.id}' and title='ZZTEST Req 1'`);
+    assert(rq && rq.provided === true && !!rq.provided_on, `and it was saved as sent (saw ${JSON.stringify(rq)})`);
+    const head = (await page.locator('.panel-head', { hasText: 'What they asked for' }).innerText()).replace(/\s+/g, ' ');
+    assert(/1 of 2 sent/.test(head), `the count follows the tick (saw "${head}")`);
+  } finally {
+    await sql(`delete from approval_requirements where approval_id='${ap.id}'; delete from approvals where id='${ap.id}'`);
+  }
 };
 
 (async () => {
