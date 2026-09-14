@@ -58,7 +58,8 @@ test('a BOQ becomes a priced draft, a shipping request and an approved order', a
   const lines = await sql(`select l.is_spec_note, l.unit, l.sell_rate from quotation_lines l join quotation_sections s on s.id=l.section_id where s.quotation_id='${q.id}'`);
   const priced = lines.filter(l => !l.is_spec_note);
   expect(priced.length).toBe(14);                                             // every bill item is a line
-  expect(priced.filter(l => l.unit === 'lm').every(l => l.sell_rate == null)).toBe(true);   // metre-run lines not priced per m²
+  expect(priced.filter(l => /^lm$/i.test(l.unit || '')).every(l => l.sell_rate == null)).toBe(true);   // metre-run lines not priced per m²
+  expect(priced.some(l => l.unit === 'LS') && !priced.some(l => /^(sq\.m|item)$/.test(l.unit || ''))).toBe(true);   // units as the bill writes them
 
   // ── the shipping request lists the cargo ────────────────────────────────────────────
   await page.click('button:has-text("Shipping request")'); await settle(2500);

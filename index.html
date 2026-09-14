@@ -806,6 +806,7 @@ ul.tight li{font-size:13px;line-height:1.6;color:var(--ink-2)}
 .sec-box{border:1px solid var(--rule);border-radius:6px;margin-bottom:14px;overflow:hidden}
 .sec-bar{background:var(--surface-2);padding:9px 12px;display:flex;gap:9px;align-items:center}
 .sec-bar input{background:var(--surface);font-weight:700}
+.sec-box.optional .sec-bar{box-shadow:inset 3px 0 0 var(--gold)}
 .lrow{display:grid;grid-template-columns:1fr 78px 84px 106px 106px 74px 118px;gap:8px;padding:8px 12px;border-top:1px solid var(--rule);align-items:start}
 /* Margin is read out, never typed. It is a consequence of the sell and cost beside it,
    so it is a div and not an input; an editable box here would invite someone to set a
@@ -1175,6 +1176,9 @@ ul.plain{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.7}
 .pa-tbl td.c{text-align:center;white-space:nowrap}
 .pa-tbl td.hl{background:#FDF2CC;text-align:center;white-space:nowrap}
 .pa-tbl td.blank{height:9pt}
+/* a note typed over two lines prints over two lines; no saved line has a break in it, so no
+   quotation already written prints any differently */
+.pa-sec tbody td:first-child{white-space:pre-line}
 
 .pa-tot{width:100%;border-collapse:collapse;margin-top:7pt;table-layout:fixed;font-size:8.2pt}
 .pa-tot td{padding:1.8pt 4pt;border:.5pt solid #808080;height:10pt}
@@ -2036,6 +2040,20 @@ const addDays = (iso, n) => {
    answering them with one setting is how systems end up quoting euros in Dubai. */
 const UI = {
  nl:{
+  "Tender / client ref.":"Aanbestedings- / klantref.",
+  "printed beside Reference":"gedrukt naast Referentie",
+  "Add as a client":"Als klant toevoegen",
+  "optional":"optie",
+  "not in the total":"niet in het totaal",
+  "Sections":"Rubrieken",
+  "In the total":"In het totaal",
+  "Optional, not in the total":"Optie, niet in het totaal",
+  "For you, not printed":"Voor u, niet afgedrukt",
+  "Remarks on the sheet":"Opmerkingen op het blad",
+  "Tender ref.":"Aanbestedingsref.",
+  "Quotation":"Offerte",
+  "Address":"Adres",
+  "Tax":"Btw",
   "Unit price":"Eenheidsprijs",
   "Price / kg":"Prijs / kg",
   "into stock":"naar voorraad",
@@ -2461,6 +2479,20 @@ const UI = {
   "Your account":"Jouw account",
  },
  fr:{
+  "Tender / client ref.":"Réf. appel d’offres / client",
+  "printed beside Reference":"imprimé à côté de Référence",
+  "Add as a client":"Ajouter comme client",
+  "optional":"option",
+  "not in the total":"hors total",
+  "Sections":"Rubriques",
+  "In the total":"Dans le total",
+  "Optional, not in the total":"En option, hors total",
+  "For you, not printed":"Pour vous, non imprimé",
+  "Remarks on the sheet":"Remarques sur la feuille",
+  "Tender ref.":"Réf. appel d’offres",
+  "Quotation":"Devis",
+  "Address":"Adresse",
+  "Tax":"TVA",
   "Unit price":"Prix unitaire",
   "Price / kg":"Prix / kg",
   "into stock":"en stock",
@@ -7449,7 +7481,7 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
 
 /* ══════════════ SETTINGS ══════════════ */
 // bumped on every deploy, so it is obvious whether a new upload actually landed
-const BUILD_VERSION = '2026.09.11';
+const BUILD_VERSION = '2026.09.14';
 /* Who changed what, and a way to get everything out.
    Four people with identical access and no record of who moved a price is fine at four
    people and stops being fine at six. And everything lives in one free-tier project, so a
@@ -8547,6 +8579,7 @@ const SHEET = {
       discount:'DISCOUNT', netTotal:'NET', noVat:'not applied',
       remarks:'Remarks', terms:'Terms and conditions', bank:'Bank details',
       licence:'Trade licence', validUntil:'Valid until',
+      tenderRef:'Tender Ref.', optional:'optional, not included in the total',
       approvalClient:'For approval Client', approvalUs:'For approval'},
   nl:{title:'OFFERTE', project:'Project', reference:'Referentie', date:'Datum',
       address:'Adres', tax:'BTW', forWhom:'Voor', site:'Werf',
@@ -8555,6 +8588,7 @@ const SHEET = {
       discount:'KORTING', netTotal:'NETTO', noVat:'niet van toepassing',
       remarks:'Opmerkingen', terms:'Algemene voorwaarden', bank:'Bankgegevens',
       licence:'Ondernemingsnummer', validUntil:'Geldig tot',
+      tenderRef:'Aanbestedingsref.', optional:'optie, niet inbegrepen in het totaal',
       approvalClient:'Voor akkoord Klant', approvalUs:'Voor akkoord'},
   fr:{title:'DEVIS', project:'Projet', reference:'Référence', date:'Date',
       address:'Adresse', tax:'TVA', forWhom:'Pour', site:'Chantier',
@@ -8563,6 +8597,7 @@ const SHEET = {
       discount:'REMISE', netTotal:'NET', noVat:'non applicable',
       remarks:'Remarques', terms:'Conditions générales', bank:'Coordonnées bancaires',
       licence:'Numéro d’entreprise', validUntil:'Valable jusqu’au',
+      tenderRef:'Réf. appel d’offres', optional:'en option, non compris dans le total',
       approvalClient:'Pour accord Client', approvalUs:'Pour accord'},
 };
 /* Named in the language of the person choosing, not in its own language. The list is
@@ -8797,7 +8832,7 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
      picks them up. Nothing is written to the database until Charles presses Save, so a
      draft he does not like costs him one press of Start again. */
   if(scope && kit) return html`<${ScopeReader} ...${kit} settings=${settings} rate=${rate}
-      office=${office} me=${me}
+      office=${office} me=${me} clients=${clients}
       ${/* Backing out of the reader still leaves the document behind, because it is
             uploaded the moment it is chosen. The list has to be re-read or it shows the
             state before the upload and the document looks lost. */''}
@@ -8808,8 +8843,11 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
             from:'scope',
             seed:{ project_name: d.parsed.title || '',
                    client_name:  d.parsed.client || '',
+                   client_reference: d.parsed.ref || '',
                    notes:        d.notes || [],
-                   internal:     d.internal || [] },
+                   internal:     d.internal || [],
+                   // a quotation sheet brings the rest of its header, its tax and its remarks
+                   ...(d.seed || {}) },
             secs:d.secs, at:Date.now()}));
         }catch(e){}
         setScope(false); setOpenId('new');
@@ -8836,7 +8874,8 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
           <th>${_t("Status")}</th><th class="n">${_t("Subtotal")}</th><th class="n">${_t("Margin")}</th></tr></thead>
         <tbody>${shown.map(r=>{
           const t=r.totals||{}; const sub=nz(t.subtotal); const gp=nz(t.gross_profit);
-          const pct= sub? gp/sub*100 : null;
+          // no cost on it anywhere is not a 100% margin, it is a margin nobody has worked out
+          const pct= sub && nz(t.cost_total) ? gp/sub*100 : null;
           return html`<tr key=${r.id} class="click" onClick=${()=>setOpenId(r.id)}>
             <td><b>${r.reference}${r.revision?' '+r.revision:''}</b></td>
             ${!office?html`<td class="muted">${(byOffice[r.office_id]||{}).name||'—'}</td>`:''}
@@ -9021,7 +9060,9 @@ async function pdfExpandObjStm(objs){
 /* What a byte in a string means. ToUnicode first, because it is the map the producer
    wrote for exactly this purpose; the encoding differences after, for older files. */
 async function pdfFontMap(fontObj, objs){
-  const out = { two: /\/Subtype\s*\/Type0/.test(fontObj.dict), map: new Map(), diff: new Map() };
+  const out = { two: /\/Subtype\s*\/Type0/.test(fontObj.dict), map: new Map(), diff: new Map(),
+                // Arial-BoldMT and its kind: on a quotation sheet the bold is part of the text
+                bold: /bold|black|heavy/i.test((/\/BaseFont\s*\/([^\s\/<>\[\]()]+)/.exec(fontObj.dict) || [])[1] || '') };
 
   const tu = /\/ToUnicode\s+(\d+)\s+\d+\s+R/.exec(fontObj.dict);
   if(tu){
@@ -9156,7 +9197,7 @@ function pdfRunsFromContent(content, fonts){
     if(!txt) return;
     const m = mul(tm, ctm);
     runs.push({ x: m[4], y: m[5], size: Math.abs(size * (tm[3] || 1)), text: txt,
-                mcid: curMcid() });
+                mcid: curMcid(), bold: !!(font && font.bold) });
   };
   const advance = w => { tm = mul([1,0,0,1,w,0], tm); };
 
@@ -9392,9 +9433,19 @@ function pdfStructMap(objs){
   return byPage;
 }
 
+/* Runs joined into text, with the bold ones wrapped in ** when that is asked for: the
+   editor's own mark, so "PU Primer :" reaches a draft as bold as it was on the sheet. Two
+   bold runs side by side are one bold stretch. Only spaces are merged across, never a tab,
+   because a tab is the edge of a cell. */
+const pdfMarked = (parts, marks, sep) => {
+  const s = parts.map(p => marks && p.bold && String(p.text).trim()
+    ? String(p.text).replace(/^(\s*)(.*?)(\s*)$/, '$1**$2**$3') : p.text).join(sep);
+  return marks ? s.replace(/\*\*( *)\*\*/g, '$1') : s;
+};
+
 /* The runs of one page, grouped by the cell the document says they were in, written out
    as one line per row with a tab between cells. */
-function pdfTaggedText(runs, cellMap){
+function pdfTaggedText(runs, cellMap, marks){
   if(!cellMap || !cellMap.size) return null;
   const cells = new Map();     // "t:r:c" -> {t,r,c,head,parts,y}
   const loose = [];
@@ -9426,15 +9477,15 @@ function pdfTaggedText(runs, cellMap){
     const text = [];
     for(let c = 1; c <= wide; c++){
       const e = row.cells.find(x => x.c === c);
-      text.push(e ? e.parts.sort((a,b) => (b.y - a.y) || (a.x - b.x))
-                     .map(p => p.text).join(' ').replace(/\s+/g,' ').trim() : '');
+      text.push(e ? pdfMarked(e.parts.sort((a,b) => (b.y - a.y) || (a.x - b.x)), marks, ' ')
+                     .replace(/\s+/g,' ').trim() : '');
     }
     // a row where every cell but one is empty is a heading inside the table, not a row
     blocks.push({ y: row.y, text: text.join('\t').replace(/\t+$/,'') });
   });
 
   // and whatever was not in the table, in the place on the page where it was
-  pdfLines(loose).forEach(l => blocks.push({ y: l.y, text: pdfJoinLine(l.parts) }));
+  pdfLines(loose).forEach(l => blocks.push({ y: l.y, text: pdfJoinLine(l.parts, marks) }));
 
   blocks.sort((a,b) => b.y - a.y);
   const out = blocks.map(b => b.text).filter(t => t.trim()).join('\n');
@@ -9471,7 +9522,7 @@ const pdfLines = runs => {
   return lines;
 };
 
-const pdfJoinLine = parts => {
+const pdfJoinLine = (parts, marks) => {
   let out = '', prevEnd = null, prevSize = 10;
   parts.forEach(p => {
     const w = String(p.text).length * (p.size || 10) * 0.5;
@@ -9480,10 +9531,11 @@ const pdfJoinLine = parts => {
       if(gap > (prevSize || 10) * 1.1) out += '\t';
       else if(gap > (prevSize || 10) * 0.12 && !/\s$/.test(out)) out += ' ';
     }
-    out += p.text;
+    out += pdfMarked([p], marks, '');
     prevEnd = p.x + w; prevSize = p.size || 10;
   });
-  return out.replace(/[ \t]+$/,'');
+  out = out.replace(/[ \t]+$/,'');
+  return marks ? out.replace(/\*\*( *)\*\*/g, '$1') : out;
 };
 
 /* Which column each word is in. Columns are clusters of left edges: everything in a
@@ -9663,15 +9715,17 @@ function pdfStitchRows(text){
   return out.join('\n');
 }
 
-function pdfRunsToText(runs){
+function pdfRunsToText(runs, marks){
   if(!runs.length) return '';
   const lines = pdfLines(runs);
   const table = pdfTableText(lines);
   if(table) return table;
-  return lines.map(l => pdfJoinLine(l.parts)).join('\n');
+  return lines.map(l => pdfJoinLine(l.parts, marks)).join('\n');
 }
 
-async function pdfToText(buf){
+// opts.bold keeps bold text wrapped in **, for a quotation sheet (see readScopeFile)
+async function pdfToText(buf, opts){
+  const marks = !!(opts && opts.bold);
   const u8 = new Uint8Array(buf);
   const objs = pdfObjects(u8);
   await pdfExpandObjStm(objs);
@@ -9707,13 +9761,16 @@ async function pdfToText(buf){
   for(const { num: pageNum, o: page } of pages){
     // the fonts this page uses, by the name the content stream calls them
     const fonts = {};
-    let res = /\/Resources\s*<<([\s\S]*?)>>\s*(?:\/|$)/.exec(page.dict);
-    let resText = res ? res[1] : '';
-    const resRef = /\/Resources\s+(\d+)\s+\d+\s+R/.exec(page.dict);
+    /* Read with the brackets balanced. The pattern this replaced stopped at the first ">>"
+       followed by a name, which on an Excel PDF is the end of /ExtGState, so the page
+       seemed to have no fonts at all. Single byte text still came out, by luck; the two
+       byte font Excel switches to for curly quotes came out as unreadable symbols in the
+       middle of a specification line. */
+    let resText = pdfValueOf(page.dict, '/Resources');
+    const resRef = /^(\d+)\s+\d+\s+R$/.exec(resText.trim());
     if(resRef) resText = (objs.get(Number(resRef[1]))||{}).dict || '';
-    const fontBlock = /\/Font\s*<<([\s\S]*?)>>/.exec(resText);
-    let fontText = fontBlock ? fontBlock[1] : '';
-    const fontRef = /\/Font\s+(\d+)\s+\d+\s+R/.exec(resText);
+    let fontText = pdfValueOf(resText, '/Font');
+    const fontRef = /^(\d+)\s+\d+\s+R$/.exec(fontText.trim());
     if(fontRef) fontText = (objs.get(Number(fontRef[1]))||{}).dict || '';
     for(const fm of fontText.match(/\/([A-Za-z0-9#+.\-]+)\s+(\d+)\s+\d+\s+R/g) || []){
       const q = /\/([A-Za-z0-9#+.\-]+)\s+(\d+)/.exec(fm);
@@ -9737,8 +9794,8 @@ async function pdfToText(buf){
        which cell each piece of text was in, so where it works there is nothing left to
        get wrong. Where the file is not tagged it returns nothing and the geometry runs. */
     let text = null;
-    try{ text = pdfTaggedText(runs, struct.get(pageNum)); }catch(e){ text = null; }
-    if(!text) text = pdfRunsToText(runs);
+    try{ text = pdfTaggedText(runs, struct.get(pageNum), marks); }catch(e){ text = null; }
+    if(!text) text = pdfRunsToText(runs, marks);
     if(text.trim()) out.push(text);
   }
 
@@ -10049,10 +10106,15 @@ async function readScopeFile(file){
     /* A PDF is drawing instructions, not a document, so this is the one format that has
        to be reconstructed rather than read. When it works it is exact; when the pages
        turn out to be pictures there is genuinely nothing to read and it says so. */
-    return { text: await pdfToText(buf), kind:'pdf' };
+    const text = await pdfToText(buf);
+    /* One of our own quotation sheets is read a second time with the bold kept. On a sheet
+       the bold is part of what was written: "PU Primer :" and "Note:" are headings and
+       "Provisional Quantity" is stressed, and a draft that loses that has to be gone back
+       through line by line. A bill of quantities is left exactly as it always was read. */
+    if(looksLikeQuotationSheet(text)) return { text: await pdfToText(buf, {bold:true}), kind:'pdf' };
+    return { text, kind:'pdf' };
   }
-  throw new Error('Upload a Word document, an Excel workbook, or a text file. '
-    + 'A PDF can be kept but its table has to be pasted.');
+  throw new Error('Upload a Word document, an Excel workbook, a PDF or a text file.');
 }
 
 /* ══════════════ READING A SCOPE OF WORKS ══════════════
@@ -10087,6 +10149,19 @@ const SCOPE_UNITS = {
 const scopeUnit = u => SCOPE_UNITS[String(u||'').trim().toLowerCase().replace(/\.$/,'')] || null;
 // a line measured by area, the only kind a per-square-metre cost can be put against
 const isAreaUnit = u => /m2|m²|sq\.?\s?m|sqm/i.test(String(u||''));
+/* The unit the way the document wrote it, which is how it prints. The canonical one above
+   is for the arithmetic; a consultant laying the quotation beside his bill looks for LS
+   and LM, not for item and lm, and 0731 went out reading "item". Only the typewriter
+   spelling of a square metre is put right, because m2 and m² are one unit and a sheet
+   writes it one way. */
+const unitAsWritten = u => {
+  const t = String(u||'').trim().replace(/\.$/,'');
+  if(/^m\s*\^?\s*2$|^m²$/i.test(t)) return 'm²';
+  if(/^l\.?\s?s$/i.test(t)) return 'LS';
+  return t;
+};
+// what the unit box suggests: the units the sheets are actually written in
+const SHEET_UNITS = ['m²','m','LS','sq.m','lm','nr','kg','ltr','item'];
 
 /* Words that carry no meaning for matching. Kept short: over-filtering loses the very
    words that identify a product, and "coating" and "system" are worth keeping because
@@ -10170,7 +10245,7 @@ function splitRunOn(text){
     const unit = scopeUnit(m[4]);
     const qty  = Number(String(m[3]).replace(/,/g,''));
     if(!unit || !isFinite(qty) || desc.length < 8) continue;
-    hits.push({ no:Number(m[1]), text:desc, qty, unit,
+    hits.push({ no:Number(m[1]), text:desc, qty, unit, unit_text:unitAsWritten(m[4]),
                 from:m.index, to:RUNON_ITEM.lastIndex });
   }
   // the chain has to be unbroken, or this is prose that happens to contain numbers
@@ -10189,7 +10264,7 @@ function splitRunOn(text){
   rest = s.slice(0, cut);
   rest += ' ' + s.slice(run[run.length-1].to);
   return {
-    items: run.map(h => ({ no:h.no, text:h.text, qty:h.qty, unit:h.unit,
+    items: run.map(h => ({ no:h.no, text:h.text, qty:h.qty, unit:h.unit, unit_text:h.unit_text,
                            optional:false, layers:readLayers(h.text) })),
     rest: rest.replace(/\s+/g,' ').trim(),
   };
@@ -10239,7 +10314,7 @@ function parseScope(raw){
       let tt = m[1];
       const tr = tt.match(/\s*tender\s*(?:ref\.?(?:\s*no\.?)?|reference|no\.?)\s*[:\-]?\s*(.*)$/i);
       if(tr){ tt = tt.slice(0, tr.index); const r = tr[1].replace(/^[\s:\-]+/,'').trim();
-              if(r && !out.ref) out.ref = 'Tender ref ' + r; }
+              if(r && !out.ref) out.ref = r; }
       out.title = tt.trim(); return;
     }
 
@@ -10252,7 +10327,7 @@ function parseScope(raw){
     if(/^tender\s*(ref|reference|no)/i.test(t)) {
       // "Tender ref.no  7089:" and "Tender ref.no : 7089" are the same field
       const r = t.replace(/^tender\s*(?:ref\.?(?:\s*no\.?)?|reference|no\.?)\s*[:\-]?\s*/i,'').replace(/\s*:\s*$/,'').trim();
-      if(r && !out.ref) out.ref = 'Tender ref ' + r; return; }
+      if(r && !out.ref) out.ref = r; return; }
     if(/^(brief\s+)?description\s*[:\-]?$/i.test(t))               return;
     if(/^project\s*(background|summary)/i.test(t))                 return;
 
@@ -10311,7 +10386,7 @@ function parseScope(raw){
           no: parseFloat(m[1]) || out.items.length + 1,
           label: m[1],
           text: m[2].replace(/\s+/g,' ').trim(),
-          qty, unit, optional, group,
+          qty, unit, unit_text: unitAsWritten(m[4]), optional, group,
           layers: readLayers(m[2]),
           thickness_mm: readThickness(m[2]),
         });
@@ -10394,6 +10469,164 @@ function perMmOf(p){
   if(!m) return null;
   const kg = numOf(m[2]||m[1]), mm = numOf(m[3]);
   return kg > 0 && mm > 0 ? kg/mm : null;
+}
+
+/* ── one of our own quotation sheets ───────────────────────────────────────────
+   Not everything uploaded here is a client's bill. Build-Tech's own quotations come in
+   too, from the Excel template used before this system or printed from it: one that went
+   out on paper has to be put on the books, and the next revision starts from the copy the
+   client holds. Read as a bill, a sheet came out empty, with "0732 BT" taken for the
+   client's name.
+
+   A sheet already has everything a quotation has: the reference, the date, the client
+   and its address, the tender number, a price on every line and the words under it, the
+   tax and the remarks. So it is read field by field into those. The one thing that must
+   come through untouched is the money: the draft adds up to the subtotal the sheet
+   printed, or it says where it does not. */
+const SHEET_TITLE = /^(quotation|offerte|devis)$/i;
+const sheetCells = line => String(line||'').split('\t').map(c => plainText(c).trim());
+
+// "Description | Unit | Qté | Prix unit. (AED) | Total Price (AED)", in any of the three languages
+function isSheetHeaderRow(line){
+  const c = sheetCells(line).map(x => x.toLowerCase());
+  return c.length >= 4
+    && /^(description|omschrijving)$/.test(c[0])
+    && c.some(x => /^(unit|unité|eenheid)$/.test(x))
+    && c.some(x => /^(qty|qté|quantity|quantité|aantal)\.?$/.test(x))
+    && c.some(x => /^(unit price|prix unit|eenheidsprijs)/.test(x));
+}
+
+function looksLikeQuotationSheet(raw){
+  const lines = String(raw||'').split('\n');
+  return lines.some(l => SHEET_TITLE.test(plainText(l).trim()))
+      && lines.some(isSheetHeaderRow)
+      && lines.some(l => /\b(sub-?total|subtotaal|sous-total)\b/i.test(plainText(l)));
+}
+
+/* A figure the way either kind of sheet writes it. The Excel template is Belgian,
+   28.153,00 and 1.407.650,00; this system writes 28153,00 and 1,407,650. With both marks
+   the last one is the decimal point; a lone mark followed by one or two digits is a
+   decimal point; any other mark groups thousands. */
+const sheetNum = t => {
+  const s = plainText(t).replace(/[^\d.,\-]/g,'');
+  if(!/\d/.test(s)) return null;
+  const dot = s.lastIndexOf('.'), comma = s.lastIndexOf(',');
+  let dec = null;
+  if(dot >= 0 && comma >= 0) dec = dot > comma ? '.' : ',';
+  else if(comma >= 0 && /^[^,]*,\d{1,2}$/.test(s)) dec = ',';
+  else if(dot >= 0 && /^[^.]*\.\d{1,2}$/.test(s)) dec = '.';
+  const at = dec ? s.lastIndexOf(dec) : s.length;
+  const n = Number(s.slice(0, at).replace(/[.,]/g,'') + (dec ? '.' + s.slice(at + 1) : ''));
+  return isFinite(n) ? n : null;
+};
+
+function parseQuotationSheet(raw){
+  const out = { number:'', reference:'', date:'', company:'', company_address:'', licence:'',
+                client:'', client_address:'', client_trn:'', site:'', client_reference:'',
+                currency:'', sections:[], subtotal:null, discount:null,
+                vat:{ stated:false, applies:null, pct:null, amount:null }, total:null,
+                remarks:[], unread:[] };
+  const lines = String(raw||'').replace(/\r/g,'').split('\n');
+  const filledAfter = i => {
+    for(let k = i + 1; k < lines.length; k++) if(plainText(lines[k]).trim()) return lines[k];
+    return '';
+  };
+  let party = 'company', sec = null, remarks = false;
+
+  lines.forEach((line, i) => {
+    const cells = sheetCells(line);
+    const filled = cells.filter(Boolean);
+    const whole = filled.join(' ');
+    if(!whole || SHEET_TITLE.test(whole) || /^\S+@\S+\.\S+$/.test(whole)) return;
+
+    // the remarks run down to the signatures, or to the terms and the bank details
+    if(/^(for approval|voor akkoord|pour accord)\b/i.test(whole)){ remarks = false; return; }
+    if(/^(remarks|opmerkingen|remarques)\s*:?$/i.test(whole)){ remarks = true; sec = null; return; }
+    if(remarks){
+      if(/^(terms and conditions|bank details|trade licence|algemene voorwaarden|bankgegevens|ondernemingsnummer|conditions générales|coordonnées bancaires|numéro d’entreprise)\b/i.test(whole))
+        remarks = false;
+      else out.remarks.push(whole);
+      return;
+    }
+
+    // "6. OPTIONAL", with the column headings right under it, is a section
+    const band = /^(\d{1,2})\.\s+(\S.*)$/.exec(whole);
+    if(band && filled.length === 1 && isSheetHeaderRow(filledAfter(i))){
+      sec = { no:Number(band[1]), title:band[2].trim(), lines:[] };
+      out.sections.push(sec); return;
+    }
+    if(isSheetHeaderRow(line)){
+      const cur = /\((AED|EUR)\)/i.exec(whole);
+      if(cur && !out.currency) out.currency = cur[1].toUpperCase();
+      return;
+    }
+
+    /* The totals, which end the sections. Matched on the whole cell, so a line of
+       specification that happens to start with "VAT" or "Total" stays specification. */
+    const key = out.sections.length && filled.find(c =>
+      /^(sub-?total|subtotaal|sous-total|total|totaal|discount|korting|remise|net|netto)$/i.test(c)
+      || /^(sales tax|vat|btw|tva)(\s*\(%\)|\s*\d+(?:[.,]\d+)?\s*%)?$/i.test(c));
+    if(key){
+      const rest = filled.filter(c => c !== key);
+      const figure = rest.map(sheetNum).find(n => n != null);
+      if(/^(sub-?total|subtotaal|sous-total)$/i.test(key)) out.subtotal = figure ?? null;
+      else if(/^(total|totaal)$/i.test(key)) out.total = figure ?? null;
+      else if(/^(discount|korting|remise)$/i.test(key)) out.discount = figure ?? null;
+      else if(!/^(net|netto)$/i.test(key)){
+        const pct = /(\d+(?:[.,]\d+)?)\s*%/.exec(key);
+        const rate = pct ? Number(pct[1].replace(',','.')) : null;
+        out.vat = { stated:true, pct:rate, amount:figure ?? null,
+                    applies: !/not applied|niet van toepassing|non applicable/i.test(rest.join(' '))
+                             && ((figure || 0) > 0 || (rate || 0) > 0) };
+      }
+      sec = null; return;
+    }
+
+    if(!out.sections.length){
+      let lab = filled[0], val = filled.slice(1).join(' ');
+      // "Project : 0744 BT" as one cell
+      if(!val && lab.includes(':')){ val = lab.slice(lab.indexOf(':') + 1).trim(); lab = lab.slice(0, lab.indexOf(':')); }
+      lab = lab.replace(/[\s:]+$/,'').trim().toLowerCase();
+      if(/^(project|projet)$/.test(lab)) out.number = val;
+      else if(/^(reference|référence|referentie)$/.test(lab)) out.reference = val;
+      else if(/^(date|datum)$/.test(lab)){
+        const d = /(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/.exec(val);
+        if(d) out.date = d[3] + '-' + d[2].padStart(2,'0') + '-' + d[1].padStart(2,'0');
+      }
+      else if(/^(company|société|bedrijf)$/.test(lab)){ out.company = val; party = 'company'; }
+      else if(/^(for|pour|voor)$/.test(lab)){ out.client = val; party = 'client'; }
+      else if(/^(address|adresse|adres)$/.test(lab)){
+        if(party === 'client') out.client_address = val; else out.company_address = val; }
+      else if(/^(tl|trade licen[cs]e)$/.test(lab)) out.licence = val;
+      else if(/^(trn|btw|tva|vat)$/.test(lab)){ if(party === 'client') out.client_trn = val; }
+      else if(/^(site|werf|chantier)$/.test(lab)) out.site = val;
+      else if(/^(tender ref\.?( ?no\.?)?|tender reference|aanbestedingsref\.?|réf\. appel d’offres|your ref\.?|client ref\.?)$/.test(lab))
+        out.client_reference = val;
+      // this system's own sheet writes the company's name alone, above its address
+      else if(filled.length === 1 && !out.company && !out.client) out.company = filled[0];
+      else out.unread.push(whole);
+      return;
+    }
+
+    if(!sec){ out.unread.push(whole); return; }
+    const raws = String(line).split('\t').map(c => c.trim());
+    // a priced line: description, unit, quantity, rate, amount
+    if(cells.length >= 4 && cells[0] && cells[1] && cells[1].length <= 12
+       && (sheetNum(cells[2]) != null || sheetNum(cells[3]) != null || !cells.slice(2).some(Boolean))){
+      sec.lines.push({ priced:true, description:raws[0], unit:cells[1],
+                       qty:sheetNum(cells[2]), rate:sheetNum(cells[3]), amount:sheetNum(cells[4]) });
+      return;
+    }
+    // everything else in a section is words: the rest of a description, a product, a note
+    const text = raws.filter(c => plainText(c).trim()).join(' ').trim();
+    const bold = /^\*\*[^*]+\*\*$/.test(text);
+    sec.lines.push({ priced:false, description: bold ? text.slice(2, -2).trim() : text, bold });
+  });
+
+  // a tax row left empty on a sheet whose total is more than its subtotal was charged after all
+  if(out.vat.stated && !out.vat.applies && out.total != null && out.subtotal != null
+     && out.total > out.subtotal - (out.discount || 0) + 1) out.vat.applies = true;
+  return out;
 }
 
 /* ── matching ──────────────────────────────────────────────────────────────────
@@ -10594,7 +10827,7 @@ function buildDraft(parsed, matched, ctx){
     /* The priced line carries the bill's own words and the quantity, so a consultant
        laying the quotation beside the BOQ finds every item. The section title stays
        short; the wording lives on the line. */
-    push({ description: it.text, unit: it.unit, quantity: it.qty });
+    push({ description: it.text, unit: it.unit_text || it.unit, quantity: it.qty });
 
     // A section that cannot be priced keeps its line, with the rate blank, and the
     // reason goes inside. The editor counts the sections still without a price.
@@ -10677,8 +10910,10 @@ function buildDraft(parsed, matched, ctx){
 function finishSection(it, i, lines){
   return {
     id: 'sec' + Date.now() + '-' + i,
-    title: sectionTitle(it),
+    title: sectionTitle(it, true),
     position: i + 1,
+    // the bill's optional items are priced for the client and left out of the total
+    is_optional: !!it.optional,
     lines,
   };
 }
@@ -10694,7 +10929,7 @@ function shortGroup(g){
 
 /* A section is titled the way somebody would refer to the job on site, not with the
    consultant's whole sentence. */
-function sectionTitle(it){
+function sectionTitle(it, bare){
   const t = it.text
     .replace(/\s*:.*$/, '')      // everything after a colon is the build-up
     .replace(/\.\s.*$/, '')      // and everything after the first full stop is a caveat
@@ -10706,14 +10941,120 @@ function sectionTitle(it){
      quantities. Without the bill's name on the section there are two item 1s in the
      draft and nothing to say which is which. */
   const where = it.group ? shortGroup(it.group) + ': ' : '';
-  return (it.optional ? 'Optional — ' : '') + where + (short || ('Item ' + it.no));
+  // the draft's section carries the optional flag, which the sheet prints, so only the
+  // review screen needs the word in the title
+  return (it.optional && !bare ? 'Optional — ' : '') + where + (short || ('Item ' + it.no));
+}
+
+/* A sheet into the sections the editor holds, with a note of everything to check before
+   it goes anywhere. Nothing is priced here that the sheet did not price. */
+function draftFromSheet(sheet, ctx){
+  const office = (ctx && ctx.office) || null;
+  const notes = [], checks = [];
+  const fmt = n => Number(n||0).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const sumOf = s => s.lines.filter(l => l.priced).reduce((t,l) => t + nz(l.qty)*nz(l.rate), 0);
+  const where = s => 'Section ' + s.no + ' (' + s.title + ')';
+
+  /* The editor prices a section on its first priced line and reads any other line with a
+     rate as what that price is made of. A sheet that charges two lines in one section is
+     split into one section per charged line, so every line the client was charged for
+     stays in the price. */
+  const parts = [];
+  sheet.sections.forEach(s => {
+    const idx = s.lines.map((l,k) => l.priced ? k : -1).filter(k => k >= 0);
+    if(idx.length <= 1){ parts.push(s); return; }
+    idx.forEach((k, n) => parts.push({ ...s, title: n ? s.title + ' (' + (n + 1) + ')' : s.title,
+      lines: s.lines.slice(n ? k : 0, idx[n + 1] ?? s.lines.length) }));
+    checks.push(where(s) + ' charges ' + idx.length + ' lines, so it is split into ' + idx.length
+      + ' sections, one per charged line, to keep each of them in the price.');
+  });
+
+  parts.forEach(s => s.lines.forEach(l => {
+    if(l.priced && l.amount != null && l.qty != null && l.rate != null && Math.abs(l.qty*l.rate - l.amount) >= 1)
+      checks.push(where(s) + ': ' + fmt(l.qty) + ' × ' + fmt(l.rate) + ' is ' + fmt(l.qty*l.rate)
+        + ', and the sheet prints ' + fmt(l.amount) + '. The draft keeps the quantity and the rate.');
+  }));
+
+  /* Optional, in the sheet's own terms. A section the sheet leaves out of its subtotal is
+     optional here. A section headed OPTIONAL that the sheet adds in stays in, because that
+     is what the client was told, and the note says so. */
+  const optional = new Set();
+  const isNamed = s => /\boption|\boptie|\bfacultati/i.test(s.title);
+  const all = parts.reduce((t,s) => t + sumOf(s), 0);
+  if(sheet.subtotal != null && Math.abs(all - sheet.subtotal) >= 1){
+    const gap = all - sheet.subtotal;
+    const named = parts.filter(isNamed);
+    const one = (named.length ? named : parts).find(s => Math.abs(sumOf(s) - gap) < 1);
+    if(one) optional.add(one);
+    else if(named.length > 1 && Math.abs(named.reduce((t,s) => t + sumOf(s), 0) - gap) < 1)
+      named.forEach(s => optional.add(s));
+    if(optional.size) notes.push('The sheet leaves ' + [...optional].map(where).join(' and ')
+      + ' out of its subtotal, so the draft marks ' + (optional.size === 1 ? 'it' : 'them')
+      + ' optional: priced for the client to see, not in the total.');
+    else checks.push('The lines add up to ' + fmt(all) + ' and the sheet’s subtotal is '
+      + fmt(sheet.subtotal) + '. Check the rates against the sheet.');
+  }
+  parts.filter(s => isNamed(s) && !optional.has(s) && sheet.subtotal != null).forEach(s =>
+    notes.push(where(s) + ' is headed as an option and the sheet counts it in its subtotal, so the '
+      + 'draft does too. Switch it to optional in the editor to leave it out of the total.'));
+
+  if(sheet.number) notes.unshift('Read from quotation ' + sheet.number
+    + (sheet.date ? ' of ' + sheet.date.split('-').reverse().join('/') : '')
+    + '. Saved, it takes the next number of its office rather than ' + sheet.number + '.');
+  const bare = t => plainText(t).toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(sheet.company && office && office.legal_name && bare(sheet.company) !== bare(office.legal_name))
+    notes.push('The sheet was issued as ' + sheet.company + (sheet.licence ? ', trade licence ' + sheet.licence : '')
+      + '. Saved, it prints on the letterhead of ' + office.legal_name + '.');
+  if(sheet.currency && office && office.currency && sheet.currency !== office.currency)
+    checks.push('The sheet is priced in ' + sheet.currency + ' and ' + office.name + ' quotes in '
+      + office.currency + '. The rates are copied as they are: convert them, or read it in the other office.');
+  if(sheet.unread.length) checks.push('Not placed anywhere: ' + sheet.unread.join(' | '));
+
+  const secs = parts.map((s, i) => {
+    const lines = [];
+    const push = o => lines.push({
+      id: 'l' + Date.now() + '-' + i + '-' + lines.length + '-' + Math.random().toString(36).slice(2,6),
+      description:'', unit:'', quantity:'', sell_rate:'', cost_rate:'',
+      is_spec_note:false, is_bold:false, is_costing:false, is_provisional:false,
+      position: lines.length + 1, ...o });
+    s.lines.forEach(l => l.priced
+      ? push({ description: l.description, unit: l.unit, quantity: l.qty ?? '', sell_rate: l.rate ?? '' })
+      : push({ is_spec_note:true, is_bold: !!l.bold, description: l.description }));
+    return { id: 'sec' + Date.now() + '-' + i, title: s.title, position: i + 1,
+             is_optional: optional.has(s), lines };
+  });
+
+  return { secs, notes, checks, internal: [...notes, ...checks], seed: {
+    sheet: true, number: sheet.number || '',
+    project_name: sheet.reference || '', client_name: sheet.client || '',
+    client_address: sheet.client_address || '', client_trn: sheet.client_trn || '',
+    site: sheet.site || '', client_reference: sheet.client_reference || '',
+    quote_date: sheet.date || '',
+    vat_applies: sheet.vat.stated ? !!sheet.vat.applies : null,
+    discount_amount: sheet.discount || null,
+    remarks: sheet.remarks.length ? sheet.remarks.join('\n') : null,
+  } };
+}
+
+/* "Waterfront Market LLC" on a document is a client already on the books nine times out of
+   ten. Matched on the name with the legal suffix and punctuation set aside. Shared by the
+   reader, which says whether the client is known, and the editor, which picks the client. */
+const clientNameKey = n => String(n||'').toLowerCase()
+  .replace(/\b(?:l\.?l\.?c|ltd|limited|co|company|inc|plc|b\.?v|n\.?v|s\.?a|s\.?l|fze|fzco|llp)\b\.?/g,'')
+  .replace(/[^a-z0-9]+/g,' ').trim();
+function matchClientName(clients, name){
+  const k = clientNameKey(name); if(k.length < 4) return null;
+  const hit = (clients||[]).find(c => clientNameKey(c.name) === k)
+           || (clients||[]).find(c => { const ck = clientNameKey(c.name);
+                return ck.length >= 4 && (ck.startsWith(k) || k.startsWith(ck)); });
+  return hit ? hit.id : null;
 }
 
 /* ── the screen ────────────────────────────────────────────────────────────────
    Paste, read, look at what it made of it, then create. The middle step is the one
    that matters: it is where a wrong equivalent gets caught, and it is why the draft is
    not created straight from the paste box. */
-function ScopeReader({products, equivalents, pastLines, settings, rate, office, me,
+function ScopeReader({products, equivalents, pastLines, settings, rate, office, me, clients,
                       done, cancel}){
   const [text,setText]=useState('');
   const [read,setRead]=useState(null);
@@ -10725,9 +11066,9 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
   const [err,setErr]=useState('');
   const [drag,setDrag]=useState(false);
 
-  /* The file is kept whatever happens next. Even a PDF, whose table has to be pasted,
-     is worth storing: six months on, the question is not only what we quoted but what
-     we were sent. */
+  /* The file is kept whatever happens next. Even one that cannot be read is worth
+     storing: six months on, the question is not only what we quoted but what we were
+     sent. */
   const take = async f => {
     if(!f) return;
     setErr(''); setBusy('Reading ' + f.name + '…');
@@ -10814,20 +11155,28 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
 
   const go = (src, stored) => {
     const use = typeof src === 'string' ? src : text;
+    /* What the document turned out to be, written back onto its row, so the list of
+       scopes reads as documents rather than as filenames. */
+    const doc = stored || (file && file.row);
+    const note = row => { if(doc && doc.id)
+      sb.from('scope_documents').update(row).eq('id', doc.id).then(()=>{}, ()=>{}); };
+    /* One of our own quotation sheets is read as a sheet: every field on it has a place on
+       a quotation, and nothing on it is a product waiting to be matched. */
+    if(looksLikeQuotationSheet(use)){
+      const sheet = parseQuotationSheet(use);
+      setPicks({});
+      setRead({sheet});
+      note({ title: [sheet.number, sheet.reference].filter(Boolean).join(' ') || null,
+             client_name: sheet.client || null,
+             item_count: sheet.sections.reduce((t,s) => t + s.lines.filter(l => l.priced).length, 0) });
+      return;
+    }
     const parsed = parseScope(use);
     const matched = parsed.items.map(it => matchItem(it, matcher));
     setPicks({});
     setRead({parsed, matched});
-    /* What the document turned out to be, written back onto its row, so the list of
-       scopes reads as documents rather than as filenames. */
-    const doc = stored || (file && file.row);
-    if(doc && doc.id){
-      sb.from('scope_documents').update({
-        title: parsed.title || null,
-        client_name: parsed.client || null,
-        item_count: parsed.items.length,
-      }).eq('id', doc.id).then(()=>{}, ()=>{});
-    }
+    note({ title: parsed.title || null, client_name: parsed.client || null,
+           item_count: parsed.items.length });
   };
 
   // what the person has chosen, folded back over what was suggested
@@ -10844,6 +11193,13 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
   }));
 
   const create = () => {
+    if(read.sheet){
+      const d = draftFromSheet(read.sheet, {office});
+      done({ parsed: { title: read.sheet.reference, client: read.sheet.client,
+                       ref: read.sheet.client_reference },
+             secs: d.secs, notes: [], internal: d.internal, seed: d.seed });
+      return;
+    }
     const chosen = withPicks();
     const draft = buildDraft(read.parsed, chosen, {products, costPerKg, sellFrom});
     done({ parsed: read.parsed, secs: draft.secs, notes: draft.notes, internal: draft.internal });
@@ -10869,8 +11225,8 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
           accept=".docx,.xlsx,.xlsm,.csv,.tsv,.txt,.md,.pdf"
           onChange=${e=>take(e.target.files && e.target.files[0])}/>
         <div class="dz-big">${busy || _t('Drop the document here, or choose a file')}</div>
-        <div class="dz-small">Word, Excel, CSV or plain text is read straight through.
-          A PDF is kept, but its table has to be pasted.</div>
+        <div class="dz-small">Word, Excel, PDF, CSV or plain text is read straight through.
+          One of our own quotation sheets comes in with every price, note and remark on it.</div>
       </label>
 
       ${file && html`<div class=${file.trouble?'flagbox':'okbox'}>
@@ -10878,13 +11234,85 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
         ${file.trouble ? ' ' + file.trouble : ''}
       </div>`}
 
-      <p class="muted" style=${{marginTop:'18px'}}>Or paste the table, if it is easier or
-        if it came out of a PDF.</p>
+      <p class="muted" style=${{marginTop:'18px'}}>Or paste the table, if that is easier.</p>
       <textarea class="scope-in" value=${text} placeholder=${'No.\tDescription\tQuantity\tUnit\n1\t…'}
         onInput=${e=>setText(e.target.value)}></textarea>
       <button class="btn" disabled=${!text.trim()||!!busy} onClick=${()=>go()}>
         ${_t('Read it')}</button>
     </div></div>`;
+
+  /* A sheet is checked, not matched: what it will become, whether it still adds up to the
+     subtotal the sheet printed, and what there is to look at before the draft exists. */
+  if(read.sheet){
+    const sh = read.sheet;
+    const d = draftFromSheet(sh, {office});
+    const cur = sh.currency || (office && office.currency) || 'AED';
+    const inTotal = d.secs.filter(s => !s.is_optional).reduce((t,s) => t + sellTotal(s.lines), 0);
+    const adds = sh.subtotal == null || Math.abs(inTotal - sh.subtotal) < 1;
+    const known = matchClientName(clients, sh.client);
+    const facts = [
+      ['Quotation', [sh.number, sh.date && fmtDate(sh.date)].filter(Boolean).join(', ')],
+      ['Reference', sh.reference],
+      ['Client', sh.client && (sh.client + (known ? ', a client on the books'
+                                                  : ', not a client yet: the draft offers to add it'))],
+      ['Address', sh.client_address],
+      ['Site', sh.site],
+      ['Tender ref.', sh.client_reference],
+      ['Tax', sh.vat.stated ? (sh.vat.applies ? 'Charged' + (sh.vat.pct ? ' at ' + sh.vat.pct + '%' : '')
+                                              : 'Not applied') : ''],
+    ].filter(([,v]) => v);
+    const count = pick => d.secs.reduce((t,s) => t + s.lines.filter(pick).length, 0);
+    return html`
+    <div class="page-head"><h1>${_t('What it read')}</h1>
+      <button class="btn ghost sp" onClick=${()=>setRead(null)}>${_t('Start again')}</button></div>
+
+    <div class="cards">
+      <div class="card"><div class="k">${_t('Sections')}</div>
+        <div class="v">${d.secs.length}</div>
+        <div class="s">${count(l=>!l.is_spec_note)+' priced, '+count(l=>l.is_spec_note)+' lines of words'}</div></div>
+      <div class=${'card'+(adds?'':' alert')}><div class="k">${_t('Subtotal')}</div>
+        <div class="v">${AED(inTotal,cur)}</div>
+        <div class="s">${sh.subtotal==null ? 'The sheet prints no subtotal'
+          : adds ? 'The same as the sheet' : 'The sheet says '+AED(sh.subtotal,cur)}</div></div>
+      <div class=${'card'+(d.checks.length?' alert':'')}><div class="k">${_t('Needs you')}</div>
+        <div class="v">${d.checks.length}</div>
+        <div class="s">${d.checks.length ? 'Listed below' : 'Nothing outstanding'}</div></div>
+    </div>
+
+    <div class="panel"><div class="panel-body"><dl class="kv">
+      ${facts.map(([k,v])=>html`<${Frag} key=${k}><dt>${_t(k)}</dt><dd>${v}</dd></${Frag}>`)}
+    </dl></div></div>
+
+    ${d.secs.map((s,i)=>html`
+      <div class="panel scope-item done" key=${i}>
+        <div class="panel-head">
+          <h2>${(i+1)+'. '+s.title}</h2>
+          <span class=${'pill sp '+(s.is_optional?'quoted':'won')}>${
+            s.is_optional ? _t('Optional, not in the total') : _t('In the total')}</span>
+          <span class="muted scope-qty">${AED(sellTotal(s.lines),cur)}</span>
+        </div>
+        <div class="panel-body">
+          ${s.lines.map((l,j)=>l.is_spec_note
+            ? html`<p class="muted" key=${j} style=${{margin:'2px 0'}}>${boldPrefix(l.description,l.is_bold)}</p>`
+            : html`<p key=${j} style=${{margin:'2px 0'}}>${richText(l.description)}<b>${
+                '  ·  '+[eu(l.quantity), l.unit].filter(Boolean).join(' ')+' × '+eu(l.sell_rate)}</b></p>`)}
+        </div>
+      </div>`)}
+
+    ${d.internal.length>0 && html`<div class="panel">
+      <div class="panel-head"><h2>${_t('For you, not printed')}</h2></div>
+      <div class="panel-body"><ul class="tight">
+        ${d.internal.map((n,i)=>html`<li key=${i}>${n}</li>`)}
+      </ul>
+      <p class="muted">These go into the meeting notes, which never print.</p></div></div>`}
+
+    ${sh.remarks.length>0 && html`<div class="panel">
+      <div class="panel-head"><h2>${_t('Remarks on the sheet')}</h2></div>
+      <div class="panel-body">${sh.remarks.map((r,i)=>html`<div key=${i}>${r}</div>`)}
+      <p class="muted">These become the draft's remarks, in place of the standard ones.</p></div></div>`}
+
+    <button class="btn" onClick=${create}>${_t('Create the draft')}</button>`;
+  }
 
   const { parsed } = read;
   const chosen = withPicks();
@@ -10908,10 +11336,11 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
                                       :'Nothing outstanding'}</div></div>
     </div>
 
-    ${(parsed.title || parsed.client) && html`<div class="panel"><div class="panel-body">
+    ${(parsed.title || parsed.client || parsed.ref) && html`<div class="panel"><div class="panel-body">
       <dl class="kv">
         ${parsed.title  && html`<${Frag}><dt>${_t('Contract')}</dt><dd>${parsed.title}</dd></${Frag}>`}
         ${parsed.client && html`<${Frag}><dt>${_t('Client')}</dt><dd>${parsed.client}</dd></${Frag}>`}
+        ${parsed.ref    && html`<${Frag}><dt>${_t('Tender ref.')}</dt><dd>${parsed.ref}</dd></${Frag}>`}
       </dl></div></div>`}
 
     ${chosen.map((it,i)=>{
@@ -10925,7 +11354,7 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
         <div class="panel-head">
           <h2>${it.no}. ${sectionTitle(it)}</h2>
           <span class=${'pill sp '+(state==='done'?'won':state==='works'?'quoted':'lost')}>${chip}</span>
-          <span class="muted scope-qty">${Number(it.qty).toLocaleString()} ${it.unit}</span>
+          <span class="muted scope-qty">${Number(it.qty).toLocaleString()} ${it.unit_text || it.unit}</span>
         </div>
         <div class="panel-body">
           <p class="muted">${it.text}</p>
@@ -11131,7 +11560,8 @@ const sellTotal = lines => (lines||[])
 /* What the sections look like once a target has been spread over them. Kept separate from
    the screen so the arithmetic can be checked without a browser. */
 function sectionsAtPrice(secs, target, onlySection){
-  const scope = onlySection == null ? (secs||[]).flatMap(s => s.lines)
+  // a price for the whole quotation is spread over what is in it, never over an optional section
+  const scope = onlySection == null ? (secs||[]).filter(s => !s.is_optional).flatMap(s => s.lines)
                                     : ((secs||[])[onlySection]||{}).lines || [];
   const next = scaleRatesTo(scope, target);
   if(!next) return null;
@@ -11181,6 +11611,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
   const [cat,setCat]=useState([]); const [trans,setTrans]=useState({});
   const [picker,setPicker]=useState(null);   // the section index whose product picker is open
   const [shipOpen,setShipOpen]=useState(false);
+  // clients added from a document on this screen, until the list behind it is loaded again
+  const [added,setAdded]=useState([]);
   const set=(k,v)=>setQ(p=>({...p,[k]:v}));
   const cfg=k=>settings.find(s=>s.key===k)?.value||'';
 
@@ -11346,16 +11778,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
        currency, the VAT rate, the office and the validity are decided here, from the
        office being worked in, and a scope of works knows nothing about any of that. */
     const fromScope = draft && draft.from === 'scope' && draft.secs;
-    /* "Waterfront Market LLC" on the bill is a client already on the books nine times
-       out of ten. Matched on the name with the legal suffix and punctuation set aside. */
-    const clientKey = n => String(n||'').toLowerCase()
-      .replace(/\b(?:l\.?l\.?c|ltd|limited|co|company|inc|plc|b\.?v|n\.?v|s\.?a|s\.?l|fze|fzco|llp)\b\.?/g,'')
-      .replace(/[^a-z0-9]+/g,' ').trim();
-    const matchClient = name => { const k = clientKey(name); if(k.length < 4) return null;
-      const hit = (clients||[]).find(c => clientKey(c.name) === k)
-               || (clients||[]).find(c => { const ck = clientKey(c.name);
-                    return ck.length >= 4 && (ck.startsWith(k) || k.startsWith(ck)); });
-      return hit ? hit.id : null; };
+    const matchClient = name => matchClientName(clients, name);
     if(isNew){
       // whatever else happens, never overwrite work already on the screen
       if(qRef.current) return;
@@ -11377,24 +11800,51 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
             remarks:cfgv('quote_remarks')||'',
             // the reader's own commentary goes here, where it never prints
             meeting_notes: fromScope ? ((draft.seed&&draft.seed.internal)||[]).join('\n') : '',
-            ...(fromScope ? {
-                  project_name: (draft.seed&&draft.seed.project_name)||'',
-                  client_id: matchClient(draft.seed&&draft.seed.client_name),
-                  /* The conditions that came with the scope go into the remarks, which is
-                     the field that prints on the sheet, rather than into a banner nobody
-                     can act on. The warranty and the spare drums are terms of the job. */
-                  remarks: [cfgv('quote_remarks')||'',
-                            ((draft.seed&&draft.seed.notes)||[]).length
-                              ? 'From the client\'s scope of works:\n'
-                                + draft.seed.notes.map((n,ix)=>(ix+1)+'. '+n).join('\n')
-                              : ''].filter(Boolean).join('\n\n'),
-                } : {})};
+            ...(fromScope ? (()=>{
+                  const seed = draft.seed || {};
+                  const client_id = matchClient(seed.client_name);
+                  // a sheet is dated, and its validity runs from that date rather than today
+                  const date = seed.quote_date || today();
+                  return {
+                  project_name: seed.project_name||'',
+                  client_id,
+                  client_reference: seed.client_reference||'',
+                  quote_date: date,
+                  valid_until: new Date(new Date(date).getTime()+days*864e5).toISOString().slice(0,10),
+                  // the address the document gives, which prints when the client record has none
+                  location: seed.site || seed.client_address || '',
+                  ...(seed.vat_applies===false ? {vat_applies:false} : {}),
+                  ...(seed.discount_amount ? {price_mode:'discount', discount_amount:seed.discount_amount} : {}),
+                  /* A client the document names who is not on the books yet is offered, not
+                     created: putting a company on the client list is somebody's decision. */
+                  _new_client: !client_id && seed.client_name
+                    ? {name:seed.client_name, location:seed.client_address||'', trn:seed.client_trn||''} : null,
+                  /* A sheet's own remarks replace the standard ones, because they are what the
+                     client was sent. A bill's conditions go into the remarks, which is the
+                     field that prints, rather than into a banner nobody can act on: the
+                     warranty and the spare drums are terms of the job. */
+                  remarks: seed.remarks!=null ? seed.remarks
+                    : [cfgv('quote_remarks')||'',
+                       (seed.notes||[]).length
+                         ? 'From the client\'s scope of works:\n'
+                           + seed.notes.map((n,ix)=>(ix+1)+'. '+n).join('\n')
+                         : ''].filter(Boolean).join('\n\n'),
+                }; })() : {})};
       setQ(initial);
       if(fromScope){
         setSecs(draft.secs);
         const who = draft.seed && draft.seed.client_name;
         const notes = (draft.seed && draft.seed.notes) || [];
         const inside = (draft.seed && draft.seed.internal) || [];
+        if(draft.seed && draft.seed.sheet){
+          setRestored('Read from quotation ' + (draft.seed.number || 'sheet')
+            + (who ? ', for ' + who + (initial.client_id ? ', a client on the books' : ', not a client yet') : '') + '. '
+            + 'Its lines, rates, tax and remarks are all on this draft'
+            + (inside.length ? ', and the reader left ' + inside.length + ' '
+                + (inside.length===1?'note':'notes') + ' for you under Meeting notes; none of that prints' : '')
+            + '. Check it against the sheet. Nothing has been saved yet.');
+          return;
+        }
         setRestored('Built from the scope of works you pasted'
           + (who ? ', which reads as ' + who + '\'s job'
                    + (initial.client_id ? ', a client on the books' : '') : '') + '. '
@@ -11438,6 +11888,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
   })();},[id,isNew]);
 
   if(!q) return html`<div class="spinner"></div>`;
+  const allClients = added.length ? [...clients, ...added] : clients;
 
   // Everything about the money and the words on this quotation comes off its own office,
   // not off whichever office the person is looking at the app from.
@@ -11508,7 +11959,10 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
   /* What the client is charged, and what it costs us, are two different sets of lines.
      A build-up line is priced for our eyes: its cost is real and counts, its amount is
      not part of what the client pays. */
-  const withRates=secs.flatMap(s=>s.lines.filter(l=>!l.is_spec_note));
+  /* An optional section is priced for the client to see and is not part of the price, so it
+     is left out of every total here, as it is in quotation_totals and on the sheet. */
+  const counted=secs.filter(s=>!s.is_optional);
+  const withRates=counted.flatMap(s=>s.lines.filter(l=>!l.is_spec_note));
   const priced=withRates.filter(l=>!l.is_costing);
   const subtotal=priced.reduce((t,l)=>t+nz(l.quantity)*nz(l.sell_rate),0);
 
@@ -11574,10 +12028,10 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
     !l.is_spec_note && l.cost_rate!=null && l.cost_rate!=='');
   const costTotal = withRates.filter(l=>l.cost_rate!=null && l.cost_rate!=='')
     .reduce((t,l)=>t+nz(l.quantity)*nz(l.cost_rate),0);
-  const costedRevenue = secs.filter(hasCost).flatMap(s=>s.lines)
+  const costedRevenue = counted.filter(hasCost).flatMap(s=>s.lines)
     .filter(l=>!l.is_spec_note && !l.is_costing)
     .reduce((t,l)=>t+nz(l.quantity)*nz(l.sell_rate),0);
-  const uncosted = secs.filter(s=>!hasCost(s)).flatMap(s=>s.lines)
+  const uncosted = counted.filter(s=>!hasCost(s)).flatMap(s=>s.lines)
     .filter(l=>!l.is_spec_note && !l.is_costing && nz(l.quantity)*nz(l.sell_rate)>0);
   const uncostedRevenue = uncosted.reduce((t,l)=>t+nz(l.quantity)*nz(l.sell_rate),0);
   const gross    = costedRevenue - costTotal;
@@ -11778,7 +12232,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
       language:q.language||'en',
       price_mode:q.price_mode||null, price_target:num(q.price_target),
       discount_amount:num(q.discount_amount), discount_label:q.discount_label||null,
-      meeting_notes:q.meeting_notes||null,revision:q.revision||''}).eq('id',qid);
+      meeting_notes:q.meeting_notes||null,revision:q.revision||'',
+      client_reference:q.client_reference||null}).eq('id',qid);
     if(error){setBusy(false);setMsg('Error: '+error.message);return;}
     // The product behind a line, so stock, shipments and the scope reader can find it
     // later. Only lines that name one, and only where the name really is in the catalogue,
@@ -11788,7 +12243,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
       const p = findProduct(plainText(l.description||'')); return p ? p.id : null; };
     // One call, one transaction. The old sections go only once every new one is in;
     // before this a failure halfway left the quotation empty in the database.
-    const sections=secs.map((s,i)=>({title:s.title||('Section '+(i+1)),
+    const sections=secs.map((s,i)=>({title:s.title||('Section '+(i+1)), is_optional:!!s.is_optional,
       lines:(s.lines||[]).map(l=>({description:l.description||'',
         is_spec_note:!!l.is_spec_note,is_bold:!!l.is_bold,is_costing:!!l.is_costing,
         product_id:lineProduct(l), unit:l.unit||null, quantity:num(l.quantity),
@@ -11842,7 +12297,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
     await sb.from('quotations').delete().eq('id',q.id); dropDraft(); back();
   };
 
-  const client=clients.find(c=>c.id===q.client_id);
+  const client=allClients.find(c=>c.id===q.client_id);
 
   /* Choosing a client brings his details with him. His address and tax number were always
      read straight off his record onto the printed sheet, so those were never retyped, but
@@ -11851,9 +12306,20 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
      and the site he is building on are two different places, and quietly replacing one
      with the other would put the wrong address on a quotation. */
   const pickClient = id => {
-    const c = clients.find(x=>x.id===id);
+    const c = allClients.find(x=>x.id===id);
     setQ(p=>({...p, client_id:id,
       location: (p.location && p.location.trim()) ? p.location : ((c && c.location) || '')}));
+  };
+  // The client a document named, put on the books in one press, with the address it gave.
+  const addNewClient = async () => {
+    const n = q._new_client; if(!n || !n.name) return;
+    setBusy(true); setMsg('');
+    const {data, error} = await sb.from('clients').insert({ name:n.name, location:n.location||null,
+      trn:n.trn||null, office_id:q.office_id||undefined }).select().single();
+    setBusy(false);
+    if(error) return setMsg('Error: the client could not be added. '+error.message);
+    setAdded(a=>[...a, data]);
+    setQ(p=>{ const {_new_client, ...rest} = p; return {...rest, client_id:data.id}; });
   };
 
   return html`
@@ -11900,21 +12366,24 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
         >Discard it</button></div>`}
     ${shipOpen && html`<${ShippingRequest} q=${q} secs=${secs} cat=${cat} trans=${trans}
                           onOrder=${go && q.id ? ()=>go(['orders','new:'+q.id]) : null}
-                          settings=${settings} client=${clients.find(c=>c.id===q.client_id)}/>`}
+                          settings=${settings} client=${client}/>`}
     ${belowCost.length>0 && html`<div class="warnbar">
       ${belowCost.length} line${belowCost.length>1?'s are':' is'} priced below cost.</div>`}
 
     <datalist id="prodlist">${prods.map(n=>html`<option key=${n} value=${n}></option>`)}</datalist>
+    <datalist id="unitlist">${SHEET_UNITS.map(u=>html`<option key=${u} value=${u}></option>`)}</datalist>
 
     <div class="panel"><div class="panel-body">
       <div class="qhead">
         <div class="field"><label>${_t("Client")}</label>
           <select value=${q.client_id||''} onChange=${e=>pickClient(e.target.value||null)}>
             <option value="">${_t("Choose\u2026")}</option>
-            ${clients.map(c=>html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
+            ${allClients.map(c=>html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}
           </select></div>
         <div class="field"><label>${_t("Project")}</label>
-          <input type="text" value=${q.project_name||''} onInput=${e=>set('project_name',e.target.value)}/></div>
+          <input type="text" placeholder=${_t("printed beside Reference")}
+                 title="The sheet prints this beside Reference, under the quotation number"
+                 value=${q.project_name||''} onInput=${e=>set('project_name',e.target.value)}/></div>
         <div class="field"><label>${_t("Location")}</label>
           <input type="text" value=${q.location||''} onInput=${e=>set('location',e.target.value)}/></div>
         <div class="field"><label>${_t("Date")}</label>
@@ -11929,6 +12398,10 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
         <div class="field"><label>${_t("Revision")}</label>
           <input type="text" placeholder="blank, or Rev B" value=${q.revision||''}
                  onInput=${e=>set('revision',e.target.value)}/></div>
+        <div class="field"><label>${_t("Tender / client ref.")}</label>
+          <input type="text" placeholder="blank, or 7090" value=${q.client_reference||''}
+                 title="The client's tender or enquiry number. It prints under the client, only when there is one."
+                 onInput=${e=>set('client_reference',e.target.value)}/></div>
         <div class="field"><label>${_t("VAT")}</label>
           <select value=${q.vat_applies?'y':'n'} onChange=${e=>set('vat_applies',e.target.value==='y')}>
             <option value="y">${_t('Add')+' '+(nz(q.vat_rate)*100).toFixed(0)+'%'}</option>
@@ -12001,6 +12474,11 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
           .filter(Boolean).join(' · ')
         + '. These print on the quotation straight off the client record, so correcting '
         + 'them under Clients corrects every quotation.'}</p>`}
+      ${!client && q._new_client && html`<div class="flagbox" style=${{marginTop:'10px'}}>
+        ${q._new_client.name+' is not a client yet'
+          +(q._new_client.location ? '. The document gives the address '+q._new_client.location : '')+'.'}
+        <button class="btn sec sm" style=${{marginLeft:'10px'}} disabled=${busy}
+          onClick=${addNewClient}>${_t('Add as a client')}</button></div>`}
       ${qOffice && html`<p class="muted" style=${{margin:'4px 0 0'}}>${
         'Priced in '+qOffice.currency+', VAT '+(Number(qOffice.vat_rate)*100).toFixed(0)
         +'%, on '+qOffice.legal_name+'’s letterhead. The client’s copy prints in '
@@ -12008,7 +12486,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
     </div></div>
 
     ${secs.map((s,i)=>html`
-      <div class="sec-box" key=${s.id}>
+      <div class=${'sec-box'+(s.is_optional?' optional':'')} key=${s.id}>
         <div class="sec-bar">
           <b style=${{minWidth:'18px'}}>${i+1}.</b>
           <input type="text" placeholder="${_t("Scope title, for example Roof waterproofing")}"
@@ -12025,6 +12503,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
                       +(m?'. Gross profit on it: '+AED(m.gp,qCur):'')
                       +(m&&m.partial?'. Some priced lines have no cost, they are left out.':'')}>
               <span class="secsum">${AED(total,qCur)}</span>
+              ${s.is_optional && html`<span class="muted">${_t('not in the total')}</span>`}
               ${m && html`<${Frag}><b class=${m.tone}>${m.pct.toFixed(1)}%</b>
                 <span>${AED(m.gp,qCur)}${m.partial?' *':''}</span></${Frag}>`}
             </span>`; })()}
@@ -12039,6 +12518,14 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
             <button class="btn small" disabled=${!(num(secWant[i])>0)}
               onClick=${()=>applySecPrice(i)}>${_t('Set')}</button>
           </span>
+          ${/* An option the client can add: priced on the sheet, left out of every total.
+                0732 went out with an OPTIONAL section added into its subtotal; this is the
+                switch that says which of the two was meant. */''}
+          <button class=${'xbtn tag'+(s.is_optional?' on':'')}
+            title=${s.is_optional
+              ? 'Optional: priced for the client to see, left out of the total. Press to count it again.'
+              : 'Counted in the total. Press to make this section an option, priced but left out of the total.'}
+            onClick=${()=>upSec(i,'is_optional',!s.is_optional)}>${_t('optional')}</button>
           <button class="xbtn" title="Remove section" onClick=${()=>delSec(i)}>×</button>
         </div>
         ${secSaid[i] && html`<div class="secsaid">${secSaid[i]}
@@ -12066,7 +12553,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
                    title="Select any words and press ⌘B to bold them on the quotation"
                    onInput=${e=>pickWording(i,j,e.target.value)}
                    onKeyDown=${boldKey(v=>upLine(i,j,'description',v))}/>
-            <input type="text" placeholder="sq.m" value=${l.unit||''}
+            <input type="text" list="unitlist" placeholder="sq.m" value=${l.unit||''}
                    onInput=${e=>upLine(i,j,'unit',e.target.value)}/>
             <input type="number" step="0.01" placeholder="0" value=${l.quantity??''}
                    onInput=${e=>upLine(i,j,'quantity',e.target.value)}/>
@@ -12226,7 +12713,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
              made of large lines the nearest reachable total can be a few dirhams out, and
              Charles should see that before he presses rather than afterwards. */
           if(spread){
-            const trial = scaleRatesTo(secs.flatMap(x=>x.lines), net);
+            const trial = scaleRatesTo(counted.flatMap(x=>x.lines), net);
             if(trial && Math.abs(trial.landed - net) >= 0.5)
               say.push('It lands on '
                 + AED(q.vat_applies ? trial.landed*(1+nz(q.vat_rate)) : trial.landed, qCur)
@@ -12307,6 +12794,10 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
             <tr><td class="k">${W.tax+' :'}</td><td>${client?.trn||''}</td></tr>
             ${q.location && client?.location && q.location!==client.location
               ? html`<tr><td class="k">${W.site+' :'}</td><td>${q.location}</td></tr>` : ''}
+            ${/* the client's tender or enquiry number, only when there is one, so a
+                  quotation without it prints exactly as it always has */''}
+            ${q.client_reference
+              ? html`<tr><td class="k">${W.tenderRef+' :'}</td><td>${q.client_reference}</td></tr>` : ''}
           </tbody></table>
         </div>
       </div>
@@ -12316,7 +12807,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
           <colgroup><col style=${{width:'52%'}}/><col style=${{width:'8%'}}/><col style=${{width:'9%'}}/>
             <col style=${{width:'15%'}}/><col style=${{width:'16%'}}/></colgroup>
           <thead>
-            <tr class="band"><td colspan="5">${i+1}.  ${s.title||''}</td></tr>
+            <tr class="band"><td colspan="5">${i+1}.  ${s.title||''}${
+              s.is_optional ? '  (' + W.optional + ')' : ''}</td></tr>
             <tr class="cols">
               <td>${W.description}</td><td>${W.unit}</td><td>${W.qty}</td>
               <td>${W.unitPrice+' ('+qCur+')'}</td><td>${W.lineTotal+' ('+qCur+')'}</td></tr>

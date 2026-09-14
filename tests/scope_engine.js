@@ -25,7 +25,8 @@ function build() {
   code += 'function editor(){\n' + block(/^  const coverageOf = p =>/, /^  \/\/ Once per line, and never again/) + '\n';
   code += block(/^  const catKeys = \(\(\)=>\{/, /^  \/\/ sell that carries the margin/) + '\n';
   code += 'return {sectionCost, lineCostDetail, findProduct, packCost, packList};}\n';
-  code += 'module.exports={parseScope,buildMatcher,matchItem,buildDraft,sectionTitle,isAreaUnit,readThickness,perMmOf,editor,setCat:(c,s)=>{cat=c;settings=s;}};';
+  code += 'module.exports={parseScope,buildMatcher,matchItem,buildDraft,sectionTitle,isAreaUnit,readThickness,perMmOf,editor,'
+    + 'unitAsWritten,sheetNum,looksLikeQuotationSheet,parseQuotationSheet,draftFromSheet,setCat:(c,s)=>{cat=c;settings=s;}};';
   fs.mkdirSync(OUT, { recursive: true });
   const file = path.join(OUT, 'scope_engine_built.js');
   fs.writeFileSync(file, code);

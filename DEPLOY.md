@@ -23,7 +23,7 @@ Take a backup of the live database before the first run (Supabase, Database, Bac
 
 ## By hand
 
-1. Supabase SQL editor: run `migrations/0059_…` to `migrations/0074_…` in order.
+1. Supabase SQL editor: run `migrations/0059_…` to `migrations/0075_…` in order.
 2. Cloudflare: publish the site files (or the `buildtech-site-*.zip` built by
    `git archive`, see below) to the Worker.
 

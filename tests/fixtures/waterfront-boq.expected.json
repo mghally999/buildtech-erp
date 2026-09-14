@@ -1,9 +1,9 @@
 {
-  "_hand_checked": "Every section, quantity, unit, product line, consumption and internal note checked by hand against 4.BOQ and Spec - Meat and F&V Market floor (.docx and .pdf) on 10 September 2026. Rewrite only after checking again.",
+  "_hand_checked": "Every section, quantity, unit, product line, consumption and internal note checked by hand against 4.BOQ and Spec - Meat and F&V Market floor (.docx and .pdf) on 10 September 2026. On 14 September 2026 the units became the ones the bill writes (m², LM, LS rather than sq.m, lm, item) and the tender reference its bare number, checked again against the same documents. Rewrite only after checking again.",
   "4.BOQ and Spec - Meat and F&V Market floor.docx": {
     "title": "Replacement of Fruits and Vegetable & Meat Market Flooring",
     "client": "Waterfront Market LLC",
-    "ref": "Tender ref 7089",
+    "ref": "7089",
     "items": 14,
     "unread": 0,
     "notes": [
@@ -18,7 +18,7 @@
         "title": "Fruits and Vegetable: Removal of existing screed with carting away",
         "priced": {
           "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [],
@@ -29,7 +29,7 @@
         "title": "Fruits and Vegetable: Supply and apply of waterproofing using BASF MasterSeal M866",
         "priced": {
           "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [
@@ -43,7 +43,7 @@
         "title": "Fruits and Vegetable: Supply and apply of max 75mm screed with shutters using…",
         "priced": {
           "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [],
@@ -54,7 +54,7 @@
         "title": "Fruits and Vegetable: Supply and apply of insitu concrete skirting 150mm high x…",
         "priced": {
           "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 588
         },
         "spec": [],
@@ -65,7 +65,7 @@
         "title": "Fruits and Vegetable: Supply and apply of Ucret HFl00 RT System @ 6mm",
         "priced": {
           "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [
@@ -79,7 +79,7 @@
         "title": "Fruits and Vegetable: Supply and apply of 200 mm covered skirting using Ucrete RG…",
         "priced": {
           "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 588
         },
         "spec": [
@@ -93,7 +93,7 @@
         "title": "Fruits and Vegetable: Supply and apply of expansion joint according to the…",
         "priced": {
           "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
-          "unit": "item",
+          "unit": "LS",
           "qty": 1
         },
         "spec": [],
@@ -104,7 +104,7 @@
         "title": "Meat: Removal of existing screed with carting away",
         "priced": {
           "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [],
@@ -115,7 +115,7 @@
         "title": "Meat: Supply and apply of waterproofing using BASF MasterSeal M866",
         "priced": {
           "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [
@@ -129,7 +129,7 @@
         "title": "Meat: Supply and apply of max 75mm screed with shutters using…",
         "priced": {
           "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [],
@@ -140,7 +140,7 @@
         "title": "Meat: Supply and apply of insitu concrete skirting 150mm high x…",
         "priced": {
           "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 424.8
         },
         "spec": [],
@@ -151,7 +151,7 @@
         "title": "Meat: Supply and apply of Ucret HFl00 RT System @ 6mm",
         "priced": {
           "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [
@@ -165,7 +165,7 @@
         "title": "Meat: Supply and apply of 200 mm covered skirting using Ucrete RG…",
         "priced": {
           "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 424.8
         },
         "spec": [
@@ -179,7 +179,7 @@
         "title": "Meat: Supply and apply of expansion joint according to the…",
         "priced": {
           "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
-          "unit": "item",
+          "unit": "LS",
           "qty": 1
         },
         "spec": [],
@@ -209,7 +209,7 @@
   "4.BOQ and Spec - Meat and F&V Market floor.pdf": {
     "title": "Replacement of Fruits and Vegetable & Meat Market Flooring",
     "client": "Waterfront Market LLC",
-    "ref": "Tender ref 7089",
+    "ref": "7089",
     "items": 14,
     "unread": 0,
     "notes": [
@@ -224,7 +224,7 @@
         "title": "Fruits and Vegetable: Removal of existing screed with carting away",
         "priced": {
           "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [],
@@ -235,7 +235,7 @@
         "title": "Fruits and Vegetable: Supply and apply of waterproofing using BASF MasterSeal M866",
         "priced": {
           "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [
@@ -249,7 +249,7 @@
         "title": "Fruits and Vegetable: Supply and apply of max 75mm screed with shutters using…",
         "priced": {
           "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [],
@@ -260,7 +260,7 @@
         "title": "Fruits and Vegetable: Supply and apply of insitu concrete skirting 150mm high x…",
         "priced": {
           "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 588
         },
         "spec": [],
@@ -271,7 +271,7 @@
         "title": "Fruits and Vegetable: Supply and apply of Ucret HFl00 RT System @ 6mm",
         "priced": {
           "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 3659
         },
         "spec": [
@@ -285,7 +285,7 @@
         "title": "Fruits and Vegetable: Supply and apply of 200 mm covered skirting using Ucrete RG…",
         "priced": {
           "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 588
         },
         "spec": [
@@ -299,7 +299,7 @@
         "title": "Fruits and Vegetable: Supply and apply of expansion joint according to the…",
         "priced": {
           "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
-          "unit": "item",
+          "unit": "LS",
           "qty": 1
         },
         "spec": [],
@@ -310,7 +310,7 @@
         "title": "Meat: Removal of existing screed with carting away",
         "priced": {
           "description": "Removal of existing screed with carting away. preparing concrete slab surface for waterproof including all necessary repairs with proper material.",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [],
@@ -321,7 +321,7 @@
         "title": "Meat: Supply and apply of waterproofing using BASF MasterSeal M866",
         "priced": {
           "description": "Supply and apply of waterproofing using BASF MasterSeal M866",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [
@@ -335,7 +335,7 @@
         "title": "Meat: Supply and apply of max 75mm screed with shutters using…",
         "priced": {
           "description": "Supply and apply of max 75mm screed with shutters using MasterTop 548 screed with welded steel mesh A252",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [],
@@ -346,7 +346,7 @@
         "title": "Meat: Supply and apply of insitu concrete skirting 150mm high x…",
         "priced": {
           "description": "Supply and apply of insitu concrete skirting 150mm high x 100 mm width with champher & 10mm steel Bars",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 424.8
         },
         "spec": [],
@@ -357,7 +357,7 @@
         "title": "Meat: Supply and apply of Ucret HFl00 RT System @ 6mm",
         "priced": {
           "description": "Supply and apply of Ucret HFl00 RT System @ 6mm",
-          "unit": "sq.m",
+          "unit": "m²",
           "qty": 2400
         },
         "spec": [
@@ -371,7 +371,7 @@
         "title": "Meat: Supply and apply of 200 mm covered skirting using Ucrete RG…",
         "priced": {
           "description": "Supply and apply of 200 mm covered skirting using Ucrete RG with champher and sealant for the termination",
-          "unit": "lm",
+          "unit": "LM",
           "qty": 424.8
         },
         "spec": [
@@ -385,7 +385,7 @@
         "title": "Meat: Supply and apply of expansion joint according to the…",
         "priced": {
           "description": "Supply and apply of expansion joint according to the approved design at site with steel cover.Vendor required to submit desgin technical data for approval",
-          "unit": "item",
+          "unit": "LS",
           "qty": 1
         },
         "spec": [],

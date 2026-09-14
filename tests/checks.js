@@ -362,13 +362,16 @@ checks.scope_draft = async page => {
     assert(vals.some(v => /^Removal of existing screed with carting away/.test(v)), "the priced line carries the bill's own words");
     assert(vals.some(v => /BT-Crete SL : Approx\. 10,5 kg\/m² at 6 mm\./.test(v)), 'the 6 mm item is costed at 6 mm');
     await page.click('button:has-text("Save")'); await settle(4000);
-    const [q] = await sql(`select id, reference, client_id, project_name, meeting_notes from quotations where id not in (${[...before].map(x => `'${x}'`).join(',') || "'00000000-0000-0000-0000-000000000000'"})`);
+    const [q] = await sql(`select id, reference, client_id, project_name, meeting_notes, client_reference from quotations where id not in (${[...before].map(x => `'${x}'`).join(',') || "'00000000-0000-0000-0000-000000000000'"})`);
     assert(q && q.client_id === cl.id && /Replacement of Fruits and Vegetable/.test(q.project_name), `the saved quotation has the client and the title (saw ${q && q.reference})`);
+    assert(q && q.client_reference === '7089', `the tender reference on the bill is kept on the quotation (saw ${q && JSON.stringify(q.client_reference)})`);
     assert(q && /taking the old one off/.test(q.meeting_notes) && /is measured in lm/.test(q.meeting_notes), 'and the reader\'s notes saved as meeting notes');
     const lines = q ? await sql(`select l.description, l.is_spec_note, l.unit, l.quantity, l.sell_rate from quotation_lines l join quotation_sections s on s.id=l.section_id where s.quotation_id='${q.id}'`) : [];
     const priced = lines.filter(l => !l.is_spec_note);
     assert(priced.length === 14, `14 priced lines saved (saw ${priced.length})`);
-    assert(priced.filter(l => l.unit === 'lm').every(l => l.sell_rate == null), 'the metre-run lines were left unpriced rather than priced per square metre');
+    assert(priced.filter(l => /^lm$/i.test(l.unit || '')).every(l => l.sell_rate == null), 'the metre-run lines were left unpriced rather than priced per square metre');
+    assert(priced.some(l => l.unit === 'LS') && priced.some(l => l.unit === 'm²') && !priced.some(l => /^(sq\.m|item)$/.test(l.unit || '')),
+      `units are kept the way the bill writes them (saw ${[...new Set(priced.map(l => l.unit))].join(', ')})`);
     assert(priced.filter(l => Number(l.sell_rate) > 0).length === 4, `the four square-metre sections with a product were priced (saw ${priced.filter(l => Number(l.sell_rate) > 0).length})`);
     assert(!lines.some(l => /Offered against|To be priced by us|delete this note/.test(l.description)), 'nothing internal went into the printed lines');
   } finally {
@@ -961,6 +964,131 @@ checks.approval_keeps_typing = async page => {
     assert(/1 of 2 sent/.test(head), `the count follows the tick (saw "${head}")`);
   } finally {
     await sql(`delete from approval_requirements where approval_id='${ap.id}'; delete from approvals where id='${ap.id}'`);
+  }
+};
+
+// Tenders 7089 and 7090: one of our own quotation sheets, uploaded as a PDF, comes in with every field
+// on it, and saved it adds up to the subtotal the sheet printed. The two PDFs carry a client's prices,
+// so they are read from outside the repo: TENDER_DIR, or the Desktop folder they arrived in.
+checks.quotation_sheet = async page => {
+  const fs = require('fs'), path = require('path');
+  const dir = process.env.TENDER_DIR || path.join(require('os').homedir(), 'Desktop', 'build---tech');
+  const cases = [
+    { file: '0732 - TENDER 7090.pdf', ref: '7090', subtotal: 7692847, printed: '7,692,847', sections: 6,
+      units: ['m²', 'm²', 'm²', 'LS', 'm²', 'm²'] },
+    { file: '0731 - TENDER 7089.pdf', ref: '7089', subtotal: 3843812.8, printed: '3,843,813', sections: 7,
+      units: ['sq.m', 'sq.m', 'sq.m', 'm', 'm', 'm', 'm'] },
+  ].filter(c => fs.existsSync(path.join(dir, c.file)));
+  if (!cases.length) { console.log('    (skipped: the tender PDFs are not in ' + dir + ')'); return; }
+  const [{ now: start }] = await sql('select now()::text as now');
+  const [{ quote_next: counter }] = await sql("select quote_next from offices where code='DXB'");
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Quotations');
+    for (const c of cases) {
+      console.log('   ', c.file);
+      await page.click('button:has-text("Read a scope")'); await settle(1200);
+      await page.setInputFiles('.dropzone input[type=file]', path.join(dir, c.file));
+      await page.waitForSelector('h1:has-text("What it read")', { timeout: 40000 }); await settle(800);
+      const cards = (await page.locator('.cards').innerText()).replace(/\s+/g, ' ');
+      assert(/The same as the sheet/.test(cards), `the review says the lines add up to the sheet's subtotal (saw "${cards.slice(0, 160)}")`);
+      const facts = (await page.locator('dl.kv').innerText()).replace(/\s+/g, ' ');
+      assert(facts.includes(c.ref) && /P O Box: 65565/.test(facts) && /Not applied/.test(facts),
+        `the review shows the tender reference, the client's address and the tax (saw "${facts.slice(0, 220)}")`);
+      await page.click('button:has-text("Create the draft")');
+      await page.waitForSelector('.qhead', { timeout: 20000 }); await settle(1500);
+      // the client is offered, not created; the first sheet adds it, the second finds it on the books
+      const offer = page.locator('.flagbox button:has-text("Add as a client")');
+      if (await offer.count()) { await offer.click(); await page.waitForSelector('.flagbox button:has-text("Add as a client")', { state: 'detached', timeout: 15000 }); }
+      assert(await page.locator('.field:has(> label:has-text("Tender / client ref.")) input').inputValue() === c.ref, 'the tender reference is in its own box');
+      await page.click('.page-head button:text-is("Save")');
+      await page.waitForSelector('.ok:has-text("Saved")', { timeout: 30000 }); await settle(1000);
+      const [q] = await sql(`select * from quotations where created_at >= ${lit(start)}::timestamptz and client_reference=${lit(c.ref)} order by created_at desc limit 1`);
+      assert(!!q, 'the quotation was saved');
+      if (!q) continue;
+      assert(q.project_name === 'Epoxy - Waterproof' && q.quote_date === '2026-09-12' && q.vat_applies === false,
+        `the reference, the sheet's date and no tax are on it (saw ${q.project_name} / ${q.quote_date} / ${q.vat_applies})`);
+      assert(/m² - net floor surface area/.test(q.remarks || '') && !/m2 - net/.test(q.remarks || ''), "the sheet's own remarks replace the standard ones");
+      assert(/Read from quotation 0?73[12] BT/.test(q.meeting_notes || ''), 'where it was read from is in the meeting notes');
+      const [cl] = await sql(`select name, location from clients where id='${q.client_id}'`);
+      assert(cl && cl.name === 'Waterfront Market LLC' && cl.location === 'P O Box: 65565, Dubai, UAE', `the client is on the books with the sheet's address (saw ${JSON.stringify(cl)})`);
+      const secs = await sql(`select s.position, s.is_optional, l.position as lp, l.description, l.is_spec_note, l.is_bold, l.unit
+        from quotation_sections s join quotation_lines l on l.section_id=s.id where s.quotation_id='${q.id}' order by s.position, l.position`);
+      const priced = secs.filter(l => !l.is_spec_note);
+      assert(new Set(secs.map(l => l.position)).size === c.sections && secs.every(l => l.is_optional === false),
+        `${c.sections} sections, none left out of the total, as the sheet has them`);
+      assert(JSON.stringify(priced.map(l => l.unit)) === JSON.stringify(c.units), `units as the sheet writes them (saw ${priced.map(l => l.unit).join(', ')})`);
+      const [t] = await sql(`select subtotal from quotation_totals where quotation_id='${q.id}'`);
+      assert(Math.abs(Number(t.subtotal) - c.subtotal) < 0.005, `the saved subtotal is exactly the sheet's ${c.subtotal} (saw ${t.subtotal})`);
+      const sheet = (await page.locator('.print-area').textContent()).replace(/\s+/g, ' ');
+      assert(sheet.includes('Tender Ref. :' + c.ref) && new RegExp('SUBTOTAL ?' + c.printed + ' AED').test(sheet) && !/not included in the total/.test(sheet),
+        `the printed sheet carries the tender reference and the subtotal (saw ${(sheet.match(/SUBTOTAL ?[\d,]+ AED/) || [])[0]})`);
+      if (c.ref === '7090') {
+        assert(secs.some(l => l.description === 'PU-SYSTEM:' && l.is_bold) && secs.some(l => /^\*\*Note:\*\* The above lump sum/.test(l.description)),
+          'the headings the sheet prints in bold stay bold');
+      } else {
+        assert(secs.some(l => /high adhesion “links” between the substrate/.test(l.description)), 'the text in the second font reads as words');
+        assert(priced.some(l => l.description === 'Supply and Install: **Provisional Quantity**'), 'the stressed words on a priced line stay bold');
+      }
+      await page.click('button:has-text("All quotations")'); await settle(1500);
+    }
+  } finally {
+    const qs = await sql(`select id from quotations where created_at >= ${lit(start)}::timestamptz`);
+    const docs = await sql(`select id, file_path from scope_documents where created_at >= ${lit(start)}::timestamptz`);
+    const paths = docs.map(d => d.file_path).filter(Boolean);
+    if (paths.length) { try { await page.evaluate(p => sb.storage.from('scope-docs').remove(p), paths); } catch (e) { console.log('    ✗ could not remove the stored PDFs:', e.message); } }
+    const cls = await sql(`select id from clients where created_at >= ${lit(start)}::timestamptz`);
+    const ids = [...qs, ...cls, ...docs].map(r => `'${r.id}'`);
+    if (qs.length) await sql(`delete from quotations where id in (${qs.map(r => `'${r.id}'`).join(',')})`);
+    if (docs.length) await sql(`delete from scope_documents where id in (${docs.map(r => `'${r.id}'`).join(',')})`);
+    if (cls.length) await sql(`delete from clients where id in (${cls.map(r => `'${r.id}'`).join(',')})`);
+    if (ids.length) await sql(`delete from activity_log where happened_at >= ${lit(start)}::timestamptz and row_id::text in (${ids.join(',')})`);
+    await sql(`update offices set quote_next=${Number(counter)} where code='DXB'`);
+    const [left] = await sql(`select (select count(*)::int from quotations where created_at >= ${lit(start)}::timestamptz) q,
+      (select count(*)::int from scope_documents where created_at >= ${lit(start)}::timestamptz) d,
+      (select count(*)::int from clients where created_at >= ${lit(start)}::timestamptz) c`);
+    assert(left.q === 0 && left.d === 0 && left.c === 0, `nothing it created is left behind (saw ${JSON.stringify(left)})`);
+  }
+};
+
+// The optional section and the tender reference: an option is priced on the sheet and left out of every
+// total, the reference prints under the client, and a quotation using neither prints as it always did.
+checks.optional_section = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name, vat_applies) values ('ZZTEST-Q-OPT', 4.27, '${dxb.id}', 'ZZTEST optional', false) returning id`);
+  const [s1] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Floor') returning id`);
+  const [s2] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 2, 'Soffits') returning id`);
+  await sql(`insert into quotation_lines (section_id, position, description, unit, quantity, sell_rate) values
+    ('${s1.id}', 1, 'Floor coating', 'm²', 100, 50), ('${s2.id}', 1, 'Soffit coating', 'm²', 10, 55)`);
+  const sheet = async () => (await page.locator('.print-area').textContent()).replace(/\s+/g, ' ');
+  try {
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Quotations'); await settle(800);
+    const row = page.locator('tr', { hasText: 'ZZTEST-Q-OPT' });
+    const margin = (await row.locator('td').last().innerText()).trim();
+    assert(margin === '—', `a quotation with no cost on it shows no margin in the list rather than 100% (saw "${margin}")`);
+    await row.locator('td').first().click();
+    await page.waitForSelector('.qhead', { timeout: 15000 }); await settle(800);
+    let text = await sheet();
+    assert(/1\. Floor/.test(text) && !/not included in the total/.test(text) && !/Tender Ref/.test(text), 'before: no optional marker and no tender row on the sheet');
+    assert(/SUBTOTAL ?5,550 AED/.test(text), `before: the subtotal counts both sections (saw ${(text.match(/SUBTOTAL ?[\d,]+ AED/) || [])[0]})`);
+    await page.locator('.sec-box').nth(1).locator('button.xbtn.tag', { hasText: 'optional' }).click(); await settle(400);
+    await page.locator('.field:has(> label:has-text("Tender / client ref.")) input').fill('ZZTEST-7090'); await settle(400);
+    const tot = (await page.locator('.totmain .tot').first().innerText()).replace(/\s+/g, ' ');
+    assert(/Subtotal AED 5,000\.00/.test(tot), `the editor's subtotal leaves the optional section out (saw "${tot}")`);
+    text = await sheet();
+    assert(/2\. Soffits \(optional, not included in the total\)/.test(text), 'the sheet marks the optional section');
+    assert(/550 AED/.test(text) && /SUBTOTAL ?5,000 AED/.test(text), `it still prints its price, and leaves it out of the subtotal (saw ${(text.match(/SUBTOTAL ?[\d,]+ AED/) || [])[0]})`);
+    assert(/Tender Ref\. : ?ZZTEST-7090/.test(text), 'the tender reference prints under the client');
+    await page.click('.page-head button:text-is("Save")'); await page.waitForSelector('.ok:has-text("Saved")', { timeout: 20000 }); await settle(800);
+    const [t] = await sql(`select subtotal from quotation_totals where quotation_id='${q.id}'`);
+    assert(Number(t.subtotal) === 5000, `quotation_totals leaves the optional section out (saw ${t.subtotal})`);
+    const secs = await sql(`select position, is_optional from quotation_sections where quotation_id='${q.id}' order by position`);
+    assert(secs.length === 2 && secs[0].is_optional === false && secs[1].is_optional === true, `the flag is saved on the section (saw ${JSON.stringify(secs)})`);
+    const [qq] = await sql(`select client_reference from quotations where id='${q.id}'`);
+    assert(qq.client_reference === 'ZZTEST-7090', 'the tender reference is saved');
+  } finally {
+    await sql(`delete from quotations where id='${q.id}'`);
   }
 };
 
