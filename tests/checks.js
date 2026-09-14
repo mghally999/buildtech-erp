@@ -1092,6 +1092,30 @@ checks.optional_section = async page => {
   }
 };
 
+// 0733 BT read 91.0% with one section of seven costed: the list's margin is over the costed
+// sections, the way the editor's is, and says so when that is not the whole quotation.
+checks.list_margin = async page => {
+  const [dxb] = await sql("select id from offices where code='DXB'");
+  const [q] = await sql(`insert into quotations (reference, eur_aed_rate, office_id, project_name) values ('ZZTEST-Q-MARGIN', 4.27, '${dxb.id}', 'ZZTEST margin') returning id`);
+  const [s1] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, 'Floor') returning id`);
+  const [s2] = await sql(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 2, 'Walls') returning id`);
+  await sql(`insert into quotation_lines (section_id, position, description, unit, quantity, sell_rate, cost_rate) values
+    ('${s1.id}', 1, 'Floor coating', 'm²', 100, 50, 20), ('${s2.id}', 1, 'Wall coating', 'm²', 10, 55, null)`);
+  try {
+    const [t] = await sql(`select subtotal, cost_total, costed_subtotal from quotation_totals where quotation_id='${q.id}'`);
+    assert(Number(t.subtotal) === 5550 && Number(t.cost_total) === 2000 && Number(t.costed_subtotal) === 5000,
+      `the view keeps the costed sections' subtotal apart (saw ${JSON.stringify(t)})`);
+    await login(page); await page.click('.offsw button:has-text("DXB")'); await settle(400);
+    await go(page, 'Quotations'); await settle(800);
+    const cell = page.locator('tr', { hasText: 'ZZTEST-Q-MARGIN' }).locator('td').last();
+    const text = (await cell.innerText()).trim();
+    assert(text === '60.0% *', `the list shows the margin on the costed section, 60.0%, not 64.0% over everything (saw "${text}")`);
+    assert(/costed sections only/.test(await cell.getAttribute('title') || ''), 'and says it covers the costed sections only');
+  } finally {
+    await sql(`delete from quotations where id='${q.id}'`);
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();

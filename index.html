@@ -7481,7 +7481,7 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
 
 /* ══════════════ SETTINGS ══════════════ */
 // bumped on every deploy, so it is obvious whether a new upload actually landed
-const BUILD_VERSION = '2026.09.14';
+const BUILD_VERSION = '2026.09.14-2';
 /* Who changed what, and a way to get everything out.
    Four people with identical access and no record of who moved a price is fine at four
    people and stops being fine at six. And everything lives in one free-tier project, so a
@@ -8873,9 +8873,13 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
           <th>${_t("Project")}</th><th>${_t("Date")}</th>
           <th>${_t("Status")}</th><th class="n">${_t("Subtotal")}</th><th class="n">${_t("Margin")}</th></tr></thead>
         <tbody>${shown.map(r=>{
-          const t=r.totals||{}; const sub=nz(t.subtotal); const gp=nz(t.gross_profit);
-          // no cost on it anywhere is not a 100% margin, it is a margin nobody has worked out
-          const pct= sub && nz(t.cost_total) ? gp/sub*100 : null;
+          const t=r.totals||{}; const sub=nz(t.subtotal); const cost=nz(t.cost_total);
+          /* The margin on what is costed, the way the editor works it out. Revenue with no cost
+             against it is not profit, it is a cost nobody has entered yet: counting it made a
+             quotation with one costed section read 91%. No cost anywhere reads as no margin. */
+          const costed = t.costed_subtotal!=null ? nz(t.costed_subtotal) : sub;
+          const pct = costed && cost ? (costed-cost)/costed*100 : null;
+          const part = pct!=null && costed < sub - 0.5;
           return html`<tr key=${r.id} class="click" onClick=${()=>setOpenId(r.id)}>
             <td><b>${r.reference}${r.revision?' '+r.revision:''}</b></td>
             ${!office?html`<td class="muted">${(byOffice[r.office_id]||{}).name||'—'}</td>`:''}
@@ -8885,8 +8889,9 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
             <td><span class="pill ${r.status==='approved'?'won':r.status==='rejected'?'lost':'quoted'}">${r.status}</span></td>
             ${/* each row in its own money: a Belgian job stays in euros on a mixed list */''}
             <td class="n">${AED0(sub, r.currency)}</td>
-            <td class="n" style=${{color:pct==null?'':pct<0?'var(--crit)':'var(--good)'}}>
-              ${pct==null?'—':pct.toFixed(1)+'%'}</td>
+            <td class="n" style=${{color:pct==null?'':pct<0?'var(--crit)':'var(--good)'}}
+              title=${part ? 'On the costed sections only: '+AED0(costed, r.currency)+' of the '+AED0(sub, r.currency) : ''}>
+              ${pct==null?'—':pct.toFixed(1)+'%'+(part?' *':'')}</td>
           </tr>`;})}</tbody></table></div>`
         : html`<div class="empty">${(office?_t('Nothing here yet for')+' '+office.name+'. ':_t('No quotations yet.')+' ')
             +_t('New quotation opens a blank, and the number is issued when you save.')}</div>`}
