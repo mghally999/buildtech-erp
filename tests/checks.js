@@ -1006,6 +1006,8 @@ checks.quotation_sheet = async page => {
       const [q] = await sql(`select * from quotations where created_at >= ${lit(start)}::timestamptz and client_reference=${lit(c.ref)} order by created_at desc limit 1`);
       assert(!!q, 'the quotation was saved');
       if (!q) continue;
+      const [doc] = await sql(`select quotation_id from scope_documents where created_at >= ${lit(start)}::timestamptz order by created_at desc limit 1`);
+      assert(doc && doc.quotation_id === q.id, 'the uploaded PDF is kept and tied to this quotation');
       assert(q.project_name === 'Epoxy - Waterproof' && q.quote_date === '2026-09-12' && q.vat_applies === false,
         `the reference, the sheet's date and no tax are on it (saw ${q.project_name} / ${q.quote_date} / ${q.vat_applies})`);
       assert(/m² - net floor surface area/.test(q.remarks || '') && !/m2 - net/.test(q.remarks || ''), "the sheet's own remarks replace the standard ones");
@@ -1113,6 +1115,52 @@ checks.list_margin = async page => {
     assert(/costed sections only/.test(await cell.getAttribute('title') || ''), 'and says it covers the costed sections only');
   } finally {
     await sql(`delete from quotations where id='${q.id}'`);
+  }
+};
+
+// 14 September 2026: the tender PDFs uploaded by a user who is not an owner went into storage with
+// no record, because the record had no office. Uploaded by the full user, the document is kept in
+// their own office, tied to the quotation made from it, and listed with that quotation.
+checks.scope_doc_kept = async page => {
+  const fs = require('fs'), path = require('path');
+  const file = path.join(process.env.TENDER_DIR || path.join(require('os').homedir(), 'Desktop', 'build---tech'), '0732 - TENDER 7090.pdf');
+  if (!fs.existsSync(file)) { console.log('    (skipped: the tender PDF is not in its folder)'); return; }
+  const [{ now: start }] = await sql('select now()::text as now');
+  const counters = await sql('select code, quote_next from offices');
+  // the full user's own office, from the database rather than from the page's globals
+  const [{ code: office }] = await sql(`select coalesce(o.code, (select code from offices order by position, code limit 1)) as code
+    from auth.users u join profiles p on p.id=u.id left join offices o on o.id=p.office_id where u.email=${lit(require('./lib').env.SWEEP_FULL_EMAIL)}`);
+  try {
+    await login(page, 'FULL');
+    await go(page, 'Quotations'); await page.click('button:has-text("Read a scope")'); await settle(1200);
+    await page.setInputFiles('.dropzone input[type=file]', file);
+    await page.waitForSelector('h1:has-text("What it read")', { timeout: 40000 }); await settle(1000);
+    assert(await page.locator('.err').count() === 0, 'no error on the review: the document was kept');
+    const [doc] = await sql(`select d.id, d.file_path, o.code from scope_documents d left join offices o on o.id=d.office_id
+      where d.created_at >= ${lit(start)}::timestamptz`);
+    assert(doc && doc.code === office && doc.file_path.startsWith(office + '/'), `the record is in the uploader's own office, ${office} (saw ${JSON.stringify(doc)})`);
+    await page.click('button:has-text("Create the draft")'); await page.waitForSelector('.qhead', { timeout: 20000 }); await settle(1200);
+    await page.click('.page-head button:text-is("Save")'); await page.waitForSelector('.ok:has-text("Saved")', { timeout: 30000 }); await settle(1000);
+    const [q] = await sql(`select id, reference from quotations where created_at >= ${lit(start)}::timestamptz`);
+    const [linked] = doc ? await sql(`select quotation_id from scope_documents where id='${doc.id}'`) : [];
+    assert(q && linked && linked.quotation_id === q.id, `the document is tied to the quotation made from it (saw ${JSON.stringify(linked)})`);
+    await page.click('button:has-text("All quotations")'); await settle(1500);
+    const panel = (await page.locator('.panel', { hasText: 'Scopes we have been sent' }).innerText().catch(() => '')).replace(/\s+/g, ' ');
+    assert(/0732/.test(panel) && q && panel.includes('Quotation ' + q.reference), `the list shows the document and the quotation made from it (saw "${panel.slice(0, 220)}")`);
+  } finally {
+    const docs = await sql(`select id, file_path from scope_documents where created_at >= ${lit(start)}::timestamptz`);
+    const files = await sql(`select name from storage.objects where bucket_id='scope-docs' and created_at >= ${lit(start)}::timestamptz`);
+    if (files.length) { try { await page.evaluate(p => sb.storage.from('scope-docs').remove(p), files.map(f => f.name)); } catch (e) { console.log('    ✗ could not remove the stored PDF:', e.message); } }
+    const qs = await sql(`select id from quotations where created_at >= ${lit(start)}::timestamptz`);
+    const ids = [...qs, ...docs].map(r => `'${r.id}'`);
+    if (qs.length) await sql(`delete from quotations where id in (${qs.map(r => `'${r.id}'`).join(',')})`);
+    if (docs.length) await sql(`delete from scope_documents where id in (${docs.map(r => `'${r.id}'`).join(',')})`);
+    if (ids.length) await sql(`delete from activity_log where happened_at >= ${lit(start)}::timestamptz and row_id::text in (${ids.join(',')})`);
+    for (const c of counters) await sql(`update offices set quote_next=${Number(c.quote_next)} where code=${lit(c.code)}`);
+    const [left] = await sql(`select (select count(*)::int from scope_documents where created_at >= ${lit(start)}::timestamptz) d,
+      (select count(*)::int from storage.objects where bucket_id='scope-docs' and created_at >= ${lit(start)}::timestamptz) f,
+      (select count(*)::int from quotations where created_at >= ${lit(start)}::timestamptz) q`);
+    assert(left.d === 0 && left.f === 0 && left.q === 0, `nothing it created is left behind (saw ${JSON.stringify(left)})`);
   }
 };
 

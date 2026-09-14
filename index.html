@@ -7481,7 +7481,7 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
 
 /* ══════════════ SETTINGS ══════════════ */
 // bumped on every deploy, so it is obvious whether a new upload actually landed
-const BUILD_VERSION = '2026.09.14-2';
+const BUILD_VERSION = '2026.09.14-3';
 /* Who changed what, and a way to get everything out.
    Four people with identical access and no record of who moved a price is fine at four
    people and stops being fine at six. And everything lives in one free-tier project, so a
@@ -8844,6 +8844,8 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
             seed:{ project_name: d.parsed.title || '',
                    client_name:  d.parsed.client || '',
                    client_reference: d.parsed.ref || '',
+                   // the stored document, tied to the quotation when it is first saved
+                   doc_id:       d.doc_id || null,
                    notes:        d.notes || [],
                    internal:     d.internal || [],
                    // a quotation sheet brings the rest of its header, its tax and its remarks
@@ -8913,6 +8915,8 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
           <td><b>${d.title||d.file_name}</b>
             ${d.title && html`<div class="muted" style=${{fontSize:'12px'}}>${d.file_name}</div>`}
             ${d.note && html`<div class="muted" style=${{fontSize:'12px'}}>${d.note}</div>`}
+            ${d.quotation_id && html`<div class="muted" style=${{fontSize:'12px'}}>${
+              _t('Quotation')+' '+(((rows||[]).find(r=>r.id===d.quotation_id)||{}).reference||'')}</div>`}
             ${arm && html`<div class="muted" style=${{fontSize:'12px',marginTop:'4px'}}>${
               d.quotation_id
                 ? _t('A quotation was built from this one, so it cannot be thrown away.')
@@ -11087,13 +11091,20 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
     }
 
     setBusy('Storing ' + f.name + '…');
-    const path = (office ? office.code : 'DXB') + '/' + Date.now() + '-'
+    /* The document belongs to the office it is filed under, and the row says so. Without the
+       office on it, the office rules refused the row for everyone but an owner, after the file
+       itself had gone into storage: the PDF sat there with nothing pointing at it, and the
+       error was replaced by the review before anybody could read it. */
+    const home = office || Object.values(OFFICE_BY_ID).find(o => o.code === 'DXB') || null;
+    const path = (home ? home.code : 'DXB') + '/' + Date.now() + '-'
                + f.name.replace(/[^A-Za-z0-9._-]/g,'_');
-    let stored = null;
+    let stored = null, uploaded = false;
     try{
       const up = await sb.storage.from('scope-docs').upload(path, f, {upsert:false});
       if(up.error) throw up.error;
+      uploaded = true;
       const row = {
+        office_id: home ? home.id : null,
         title: null, client_name: null,
         file_name: f.name, file_path: path,
         mime: f.type || null, size_bytes: f.size || null,
@@ -11105,8 +11116,10 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
       if(ins.error) throw ins.error;
       stored = ins.data;
     }catch(e){
-      setErr('The file could not be stored: ' + ((e&&e.message)||e)
-             + '. You can still paste the table below.');
+      // a file with no row is a file nobody can find, so it does not stay behind on its own
+      if(uploaded) await sb.storage.from('scope-docs').remove([path]).catch(()=>{});
+      setErr('The file itself could not be kept: ' + ((e&&e.message)||e)
+             + '. What was read out of it does not depend on that.');
     }
     setFile({ name:f.name, size:f.size, row:stored, trouble });
     setBusy('');
@@ -11202,12 +11215,14 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
       const d = draftFromSheet(read.sheet, {office});
       done({ parsed: { title: read.sheet.reference, client: read.sheet.client,
                        ref: read.sheet.client_reference },
-             secs: d.secs, notes: [], internal: d.internal, seed: d.seed });
+             secs: d.secs, notes: [], internal: d.internal, seed: d.seed,
+             doc_id: (file && file.row && file.row.id) || null });
       return;
     }
     const chosen = withPicks();
     const draft = buildDraft(read.parsed, chosen, {products, costPerKg, sellFrom});
-    done({ parsed: read.parsed, secs: draft.secs, notes: draft.notes, internal: draft.internal });
+    done({ parsed: read.parsed, secs: draft.secs, notes: draft.notes, internal: draft.internal,
+           doc_id: (file && file.row && file.row.id) || null });
   };
 
   if(!read) return html`
@@ -11270,6 +11285,7 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
     return html`
     <div class="page-head"><h1>${_t('What it read')}</h1>
       <button class="btn ghost sp" onClick=${()=>setRead(null)}>${_t('Start again')}</button></div>
+    ${err && html`<div class="err">${err}</div>`}
 
     <div class="cards">
       <div class="card"><div class="k">${_t('Sections')}</div>
@@ -11326,6 +11342,7 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
   return html`
     <div class="page-head"><h1>${_t('What it read')}</h1>
       <button class="btn ghost sp" onClick=${()=>setRead(null)}>${_t('Start again')}</button></div>
+    ${err && html`<div class="err">${err}</div>`}
 
     <div class="cards">
       <div class="card"><div class="k">${_t('Items read')}</div>
@@ -11814,6 +11831,7 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
                   project_name: seed.project_name||'',
                   client_id,
                   client_reference: seed.client_reference||'',
+                  _scope_doc: seed.doc_id || null,
                   quote_date: date,
                   valid_until: new Date(new Date(date).getTime()+days*864e5).toISOString().slice(0,10),
                   // the address the document gives, which prints when the client record has none
@@ -12255,6 +12273,12 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
         sell_rate:num(l.sell_rate), cost_rate:num(l.cost_rate), is_provisional:!!l.is_provisional}))}));
     const {data:savedAt,error:e2}=await sb.rpc('save_quotation',{p_quotation:qid,p_sections:sections});
     if(e2){setBusy(false);setMsg('Error: '+e2Msg(e2));return;}
+    /* The document this draft was read from is the paper behind the price. Tied to the
+       quotation on its first save, the list says which quotation came of it, and it can no
+       longer be thrown away from there. */
+    if(q._scope_doc)
+      await sb.from('scope_documents').update({quotation_id:qid, client_id:q.client_id||null})
+        .eq('id', q._scope_doc).is('quotation_id', null);
     /* Remember how each product was worded and what it was costed at, so the next
        quotation offers both rather than making somebody remember them. Only the build-up
        lines, because those are the ones that name a product; and only where the name
@@ -12287,7 +12311,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
 
     // it is in the database now: what is on screen is the saved copy, and the local
     // draft has done its job
-    const after={...q, id:qid, reference:q.reference||newRef, updated_at:savedAt};
+    const {_scope_doc, ...kept} = q;
+    const after={...kept, id:qid, reference:q.reference||newRef, updated_at:savedAt};
     savedRef.current = JSON.stringify({q:after, secs});
     setQ(after); setOffered(null);
     dropDraft(); setRestored('');
