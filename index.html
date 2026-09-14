@@ -1559,6 +1559,12 @@ ul.plain{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.7}
 [data-theme=light] .btn:active{transform:translateY(1px)}
 [data-theme=light] .btn.sec{background:#fff;border-color:var(--rule-2);color:var(--ink);box-shadow:none}
 [data-theme=light] .btn.sec:hover{background:var(--surface-2);border-color:var(--gold);filter:none}
+/* A danger button is an outline until it is armed. The red fill above is the ordinary
+   button's, and it comes later than the danger rules, so Remove and Delete were drawn as
+   dark text on red, which nobody could read. */
+[data-theme=light] .btn.danger{background:#fff;color:var(--crit-ink);border-color:var(--crit);box-shadow:none}
+[data-theme=light] .btn.danger:hover,[data-theme=light] .btn.danger.armed{
+  background:var(--crit-solid);color:#fff;border-color:var(--crit);filter:none}
 [data-theme=light] input:focus,[data-theme=light] select:focus,[data-theme=light] textarea:focus{
   border-color:var(--brand);box-shadow:0 0 0 3px rgba(142,20,40,.10);
 }
@@ -7481,7 +7487,7 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
 
 /* ══════════════ SETTINGS ══════════════ */
 // bumped on every deploy, so it is obvious whether a new upload actually landed
-const BUILD_VERSION = '2026.09.14-3';
+const BUILD_VERSION = '2026.09.14-4';
 /* Who changed what, and a way to get everything out.
    Four people with identical access and no record of who moved a price is fine at four
    people and stops being fine at six. And everything lives in one free-tier project, so a
