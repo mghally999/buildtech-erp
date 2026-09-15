@@ -1964,9 +1964,13 @@ const OFFICE_OWNED = new Set([
   'clients','field_visits','inquiries','quotations','projects','project_materials',
   'purchase_orders','shipments','warehouses','stock','stock_movements','approvals',
   'correspondence','invoices','expenses','bank_accounts','partners','payroll','commitments',
+  /* the documents clients send, filed under the office they were uploaded in; left off this
+     list, the Bruges quotations page listed Dubai's tender PDFs. And the log of who changed
+     what, which 0078 gave an office so Dubai's changes are not read out on Bruges's screens */
+  'scope_documents','activity_log',
   // and the views that summarise them, which 0048 taught to say which office they are
   'approval_progress','approval_watch','requirement_watch','cash_position',
-  'commitment_totals','commitments_outstanding','correspondence_feed','invoice_totals',
+  'commitment_totals','commitments_outstanding','invoice_totals',
   'open_order_lines','partner_ledger','project_actuals','project_totals',
   'purchase_order_totals','quotation_totals','shipment_totals','stale_inquiries',
   'stock_detail','stock_position','visit_funnel','visit_log','visit_scoreboard',
@@ -1977,12 +1981,16 @@ let MY_OFFICE_ID = null;
 // and their role, for what the screen offers; the database decides what it allows
 let MY_ROLE = null;
 
-/* Payments have no office of their own; the invoice they settle has. Read them through
-   the invoice, and in a single-office view keep to that office, or the Dubai chart shows
-   Belgian receipts and the other way round. */
-const invoicePayments = cols => {
-  const r = sb.from('invoice_payments').select(cols + ',invoices!inner(office_id)');
-  return OFFICE_ID ? r.eq('invoices.office_id', OFFICE_ID) : r; };
+/* A row with no office of its own belongs to the office of the record it hangs off: a
+   payment to its invoice, a commitment's lines to the commitment, a quotation line to its
+   quotation. Read it through that record, and in a single-office view keep to that office,
+   or the Dubai chart shows Belgian receipts and the other way round. The path is the chain
+   of parents, nearest first. */
+const viaParent = (table, cols, path) => {
+  const embed = path.reduceRight((inner, rel) => rel + '!inner(' + inner + ')', 'office_id');
+  const r = sb.from(table).select(cols + ',' + embed);
+  return OFFICE_ID ? r.eq(path.join('.') + '.office_id', OFFICE_ID) : r; };
+const invoicePayments = cols => viaParent('invoice_payments', cols, ['invoices']);
 
 /* One more try on a 401. In the burst of requests a screen fires as it opens, one can
    occasionally leave before the library has put the token on it; it comes back 401 with
@@ -7487,7 +7495,7 @@ function ShipmentPage({id,clients,quotes,projects,rate,back}){
 
 /* ══════════════ SETTINGS ══════════════ */
 // bumped on every deploy, so it is obvious whether a new upload actually landed
-const BUILD_VERSION = '2026.09.14-4';
+const BUILD_VERSION = '2026.09.15';
 /* Who changed what, and a way to get everything out.
    Four people with identical access and no record of who moved a price is fine at four
    people and stops being fine at six. And everything lives in one free-tier project, so a
@@ -7515,7 +7523,10 @@ function ActivityAndBackup(){
     setBusy('Collecting…'); setDone(''); setErr('');
     const out={taken_at:new Date().toISOString(), build:BUILD_VERSION, tables:{}};
     for(const t of TABLES){
-      const {data,error}=await sb.from(t).select('*');
+      /* Straight past the office filter: a copy taken while the switch shows one office would
+         hold that office's orders and both offices' order lines, which restores as nonsense.
+         What is in it is what this person may read, which for an owner is both offices. */
+      const {data,error}=await sbRaw.from(t).select('*');
       if(error){ out.tables[t]={error:error.message}; continue; }
       out.tables[t]=data||[];
       setBusy('Collecting '+t+'…');
@@ -7555,7 +7566,8 @@ function ActivityAndBackup(){
         ${busy && html`<div class="ok">${busy}</div>`}
         ${done && html`<div class="ok">${done}</div>`}
         <p class="muted" style=${{marginTop:0}}>Everything sits in one free Supabase project.
-          This downloads the lot as a single file you can keep yourself. Do it before
+          This downloads the lot, both offices whatever the switch shows, as a single file
+          you can keep yourself. Do it before
           anything large changes, and once a month otherwise.</p>
         <button class="btn sec" onClick=${backup} disabled=${!!busy}>
           ${busy?'Working…':'Download everything'}</button>
@@ -8822,7 +8834,9 @@ function Quotations({rate,settings,offices,office,focus,clearFocus,me,go}){
     const [pr,eq,pl]=await Promise.all([
       sb.from('products').select('*, product_aliases(alias), product_packs(*)'),
       sb.from('spec_equivalents').select('*'),
-      sb.from('quotation_lines').select('description,product_id').not('product_id','is',null),
+      // what this office has quoted before, which is what tips a close match its way
+      viaParent('quotation_lines','description,product_id',['quotation_sections','quotations'])
+        .not('product_id','is',null),
     ]);
     setKit({products:pr.data||[], equivalents:eq.data||[], pastLines:pl.data||[]});
     setScope(true);
@@ -11101,7 +11115,9 @@ function ScopeReader({products, equivalents, pastLines, settings, rate, office, 
        office on it, the office rules refused the row for everyone but an owner, after the file
        itself had gone into storage: the PDF sat there with nothing pointing at it, and the
        error was replaced by the review before anybody could read it. */
-    const home = office || Object.values(OFFICE_BY_ID).find(o => o.code === 'DXB') || null;
+    // in the company view, the uploader's own office, as for every other new record
+    const home = office || OFFICE_BY_ID[MY_OFFICE_ID]
+              || Object.values(OFFICE_BY_ID).find(o => o.code === 'DXB') || null;
     const path = (home ? home.code : 'DXB') + '/' + Date.now() + '-'
                + f.name.replace(/[^A-Za-z0-9._-]/g,'_');
     let stored = null, uploaded = false;
@@ -11815,7 +11831,9 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
       // A new quotation belongs to the office you are working in, and takes its currency,
       // its VAT rate and its language from that. Nobody sets those by hand, which is the
       // only way a Belgian job never goes out priced in dirhams at 5% VAT.
-      const home = office || (offices||[])[0] || null;
+      // In the company view that is the person's own office, where every other new record
+      // made in that view is filed, not whichever office happens to be listed first.
+      const home = office || (offices||[]).find(o=>o.id===MY_OFFICE_ID) || (offices||[])[0] || null;
       const initial={id:null,reference:null,revision:'',client_id:null,project_name:'',location:'',
             quote_date:today(),
             valid_until:new Date(Date.now()+days*864e5).toISOString().slice(0,10),
@@ -11963,7 +11981,8 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
      them, and making Charles remember it, or look it up, is how a quotation goes out at
      the wrong margin. Only fills a cost that is empty: anything typed by hand wins. */
   const pickWording=(i,j,v)=>{
-    const w=(wordings||[]).find(x=>x.wording===v);
+    // a cost remembered in dirhams is no cost at all on a quotation priced in euros
+    const w=(wordings||[]).find(x=>x.wording===v && (x.currency||'AED')===qCur);
     setSecs(a=>a.map((s,n)=>n!==i?s:{...s,lines:s.lines.map((l,m)=>{
       if(m!==j) return l;
       const next={...l, description:v};
@@ -12306,8 +12325,10 @@ function QuotationEditor({id,clients,settings,rate,offices,office,back,go}){
           last_used_at: new Date().toISOString() });
       }));
       for(const row of said.values()){
+        // each currency keeps its own memory, so a Bruges save does not overwrite Dubai's cost
         const hit = (wordings||[]).find(w =>
-          w.product_id === row.product_id && w.wording === row.wording);
+          w.product_id === row.product_id && w.wording === row.wording
+          && (w.currency||'AED') === row.currency);
         if(hit) await sb.from('product_wordings').update({
           last_cost: row.last_cost, cost_unit: row.cost_unit, currency: row.currency,
           times_used: nz(hit.times_used)+1, last_used_at: row.last_used_at }).eq('id', hit.id);
@@ -12995,8 +13016,8 @@ function Commitments(){
   const load=async()=>{
     const [t,l,d]=await Promise.all([
       sb.from('commitment_totals').select('*').order('quoted_on',{ascending:false}),
-      sb.from('commitment_lines').select('*').order('position'),
-      sb.from('commitment_documents').select('*')]);
+      viaParent('commitment_lines','*',['commitments']).order('position'),
+      viaParent('commitment_documents','*',['commitments'])]);
     const e=t.error||l.error||d.error;
     if(e){ setErr(e.message); setRows([]); return; }
     const byC={}; (l.data||[]).forEach(x=>(byC[x.commitment_id]||(byC[x.commitment_id]=[])).push(x));
@@ -14296,7 +14317,7 @@ function Readiness({settings,go}){
       .eq('status','draft');
     let docs=[];
     if((sh.data||[]).length){
-      const {data}=await sb.from('shipment_documents').select('shipment_id');
+      const {data}=await viaParent('shipment_documents','shipment_id',['shipments']);
       docs=data||[];
     }
     setD({people:(pf.data||[]).length, banks:(bk.data||[]).length,
@@ -15066,7 +15087,9 @@ function App(){
       });
     }catch(e){ /* a badge is never worth an error banner */ }
   },[]);
-  useEffect(()=>{ if(session) loadAlerts(); },[session,tab,loadAlerts]);
+  // the office too: the rail sits outside the page that remounts on a switch, and its counts
+  // stayed the last office's until somebody changed page
+  useEffect(()=>{ if(session) loadAlerts(); },[session,tab,officeCode,loadAlerts]);
 
   useEffect(()=>{
     sb.auth.getSession().then(({data})=>setSession(data.session));

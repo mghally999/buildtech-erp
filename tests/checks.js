@@ -1164,6 +1164,157 @@ checks.scope_doc_kept = async page => {
   }
 };
 
+// 15 September 2026: the Bruges quotations page listed Dubai's tender PDFs. A Dubai and a Bruges record
+// in every office-owned table and below it; as an owner, in each office's view, every page and every
+// Finance and Settings tab must show its own and never the other's, every row the page can read must be
+// its own office's, the rail's counts follow the switch, the search keeps to the office, and a Bruges
+// user cannot read Dubai's log or documents straight from the database.
+checks.office_sweep = async (page, browser) => {
+  const offices = Object.fromEntries((await sql('select code, id from offices')).map(o => [o.code, o.id]));
+  const [prod] = await sql('select id from products order by name limit 1');
+  const [{ now: start }] = await sql('select now()::text as now');
+  const TAG = { DXB: 'ZZTEST-SWEEP-DXB', BRU: 'ZZTEST-SWEEP-BRU' };
+  const one = async q => (await sql(q))[0];
+  const seed = async code => {
+    const o = offices[code], t = TAG[code], cur = code === 'DXB' ? 'AED' : 'EUR';
+    const c = await one(`insert into clients (name, office_id, kind) values (${lit(t + ' client')}, '${o}', 'client') returning id`);
+    await sql(`insert into field_visits (client_id, visit_date, summary, office_id) values ('${c.id}', current_date, ${lit(t + ' visit')}, '${o}')`);
+    await sql(`insert into inquiries (client_id, project_name, office_id) values ('${c.id}', ${lit(t + ' inquiry')}, '${o}')`);
+    const q = await one(`insert into quotations (reference, eur_aed_rate, project_name, client_id, office_id, currency)
+      values (${lit(t + '-Q')}, 4.27, ${lit(t + ' quote')}, '${c.id}', '${o}', '${cur}') returning id`);
+    const s = await one(`insert into quotation_sections (quotation_id, position, title) values ('${q.id}', 1, ${lit(t + ' section')}) returning id`);
+    await sql(`insert into quotation_lines (section_id, position, description, unit, quantity, sell_rate, cost_rate, product_id)
+      values ('${s.id}', 1, ${lit(t + ' line')}, 'm²', 1, 100, 50, '${prod.id}')`);
+    const pj = await one(`insert into projects (name, client_id, office_id, status, value) values (${lit(t + ' project')}, '${c.id}', '${o}', 'in_progress', 100) returning id`);
+    await sql(`insert into project_materials (project_id, description, office_id) values ('${pj.id}', ${lit(t + ' material')}, '${o}')`);
+    const po = await one(`insert into purchase_orders (reference, supplier, office_id, currency) values (${lit(t + '-PO')}, ${lit(t + ' supplier')}, '${o}', '${cur}') returning id`);
+    await sql(`insert into purchase_order_lines (po_id, description, qty_ordered, unit_price) values ('${po.id}', ${lit(t + ' poline')}, 1, 1)`);
+    const sh = await one(`insert into shipments (reference, office_id) values (${lit(t + '-SH')}, '${o}') returning id`);
+    await sql(`insert into shipment_documents (shipment_id, title, external_url) values ('${sh.id}', ${lit(t + ' shipdoc')}, 'https://example.com/zztest')`);
+    const w = await one(`insert into warehouses (name, office_id) values (${lit(t + ' warehouse')}, '${o}') returning id`);
+    await sql(`insert into stock_movements (product_id, warehouse_id, direction, quantity, reference, office_id)
+      values ('${prod.id}', '${w.id}', 'in', 5, ${lit(t + '-SM')}, '${o}')`);
+    await sql(`insert into approvals (title, office_id, status) values (${lit(t + ' approval')}, '${o}', 'submitted')`);
+    await sql(`insert into correspondence (summary, client_id, office_id) values (${lit(t + ' note')}, '${c.id}', '${o}')`);
+    const iv = await one(`insert into invoices (reference, client_id, office_id, status, invoice_date, due_date)
+      values (${lit(t + '-INV')}, '${c.id}', '${o}', 'sent', current_date - 40, current_date - 10) returning id`);
+    await sql(`insert into invoice_lines (invoice_id, description, quantity, rate) values ('${iv.id}', ${lit(t + ' invline')}, 1, 100)`);
+    // Bruges gets a second overdue invoice, so the two offices' counts differ and a count left
+    // over from the last office cannot pass for the right one
+    if (code === 'BRU') {
+      const iv2 = await one(`insert into invoices (reference, client_id, office_id, status, invoice_date, due_date)
+        values (${lit(t + '-INV2')}, '${c.id}', '${o}', 'sent', current_date - 40, current_date - 10) returning id`);
+      await sql(`insert into invoice_lines (invoice_id, description, quantity, rate) values ('${iv2.id}', ${lit(t + ' invline2')}, 1, 100)`);
+    }
+    await sql(`insert into expenses (description, amount, supplier, office_id, currency) values (${lit(t + ' expense')}, 10, ${lit(t + ' vendor')}, '${o}', '${cur}')`);
+    await sql(`insert into bank_accounts (name, office_id, currency) values (${lit(t + ' bank')}, '${o}', '${cur}')`);
+    await sql(`insert into partners (name, office_id) values (${lit(t + ' partner')}, '${o}')`);
+    await sql(`insert into payroll (person, amount, office_id) values (${lit(t + ' person')}, 1, '${o}')`);
+    const cm = await one(`insert into commitments (supplier, title, amount, office_id, currency) values (${lit(t + ' csupplier')}, ${lit(t + ' commitment')}, 1, '${o}', '${cur}') returning id`);
+    await sql(`insert into commitment_lines (commitment_id, service) values ('${cm.id}', ${lit(t + ' service')})`);
+    await sql(`insert into commitment_documents (commitment_id, title, external_url) values ('${cm.id}', ${lit(t + ' cdoc')}, 'https://example.com/zztest')`);
+    await sql(`insert into scope_documents (file_name, title, office_id) values (${lit(t + '.pdf')}, ${lit(t + ' scope')}, '${o}')`);
+  };
+  const PAGES = [['Operations'], ['Visits'], ['Pipeline'], ['Quotations'], ['Clients'], ['Projects'], ['Orders'],
+    ['Shipments'], ['Stock'], ['Finance', ['Overview', 'Money in', 'Money out', 'Coming up', 'Salaries and partners', 'Bank accounts']],
+    ['Approvals'], ['Catalogue'], ['Settings', ['Log and backup']]];
+  // what each office's own view must show, so an empty page cannot pass for a separated one
+  const OWN = [' client', '-Q', ' project', '-PO', '-SH', ' approval', '-INV', ' expense', ' commitment', ' partner', ' bank', ' scope', ' inquiry'];
+  const overdue = async code => (await one(`select count(*)::int n from invoice_totals where office_id='${offices[code]}'
+    and status not in ('draft','cancelled') and outstanding > 0.005 and due_date < current_date`)).n;
+  const badge = async () => { const t = await page.locator('nav.rail button[title="Finance"]').innerText();
+    const m = /(\d+)\s*$/.exec(t.trim()); return m ? Number(m[1]) : 0; };
+  let full = null;
+  try {
+    await seed('DXB'); await seed('BRU');
+    await login(page, 'OWNER');
+    for (const [label, code, other] of [['DXB', 'DXB', 'BRU'], ['BEL', 'BRU', 'DXB']]) {
+      console.log('    — the ' + label + ' view');
+      await page.click(`.offsw button:has-text("${label}")`); await settle(1200);
+      let seen = '';
+      for (const [title, tabs] of PAGES) {
+        await go(page, title); await settle(1500);
+        for (const tab of [null, ...(tabs || [])]) {
+          if (tab) { await page.locator('main button', { hasText: new RegExp('^\\s*' + tab + '\\s*$') }).first().click(); await settle(1500); }
+          const text = await page.locator('main').innerText();
+          seen += '\n' + text;
+          assert(!text.toLowerCase().includes(TAG[other].toLowerCase()), `${title}${tab ? ' → ' + tab : ''} shows nothing of ${other}`);
+        }
+      }
+      // headings are set in capitals, and innerText reads them the way they are drawn
+      const missing = OWN.filter(s => !seen.toLowerCase().includes((TAG[code] + s).toLowerCase()));
+      assert(!missing.length, `and its own records are there (missing ${missing.join(', ') || 'none'})`);
+      const leaks = await page.evaluate(async () => {
+        const out = [], counts = {};
+        for (const t of OFFICE_OWNED) {
+          const r = await sb.from(t).select('office_id');
+          if (r.error) { out.push(t + ': ' + r.error.message); continue; }
+          const bad = r.data.filter(x => x.office_id !== OFFICE_ID).length;
+          if (bad) out.push(t + ': ' + bad + ' rows of another office');
+        }
+        for (const [t, path] of [['invoice_payments', ['invoices']], ['commitment_lines', ['commitments']],
+          ['commitment_documents', ['commitments']], ['shipment_documents', ['shipments']], ['quotation_lines', ['quotation_sections', 'quotations']]]) {
+          const r = await viaParent(t, 'id', path);
+          if (r.error) { out.push(t + ': ' + r.error.message); continue; }
+          const off = x => path.reduce((v, k) => v && v[k], x).office_id;
+          counts[t] = r.data.length;
+          if (r.data.some(x => off(x) !== OFFICE_ID)) out.push(t + ' through ' + path.join('.') + ': rows of another office');
+        }
+        return { out, counts };
+      });
+      assert(!leaks.out.length, `every row the page can read is ${code}'s (${leaks.out.join(' ; ') || 'all tables and views checked'})`);
+      assert(['commitment_lines', 'commitment_documents', 'shipment_documents', 'quotation_lines'].every(t => leaks.counts[t] >= 1),
+        `and the rows under a record are read through it (saw ${JSON.stringify(leaks.counts)})`);
+      const log = await page.evaluate(async () => { const r = await sb.from('activity_log').select('office_id,table_name');
+        return r.error ? r.error.message : r.data; });
+      assert(Array.isArray(log) && log.length > 0 && log.every(x => x.office_id === offices[code]),
+        `the log lists only ${code}'s changes (saw ${Array.isArray(log) ? log.length + ' rows' : log})`);
+      await page.keyboard.press('Control+k'); await settle(500);
+      await page.locator('.pal input').first().fill('ZZTEST-SWEEP'); await settle(1500);
+      const found = await page.locator('.pal').innerText();
+      assert(found.includes(TAG[code]) && !found.includes(TAG[other]), `the search finds ${code}'s records and none of ${other}'s`);
+      await page.keyboard.press('Escape'); await settle(300);
+    }
+    // the rail's count follows the switch without a change of page
+    await go(page, 'Clients'); await settle(800);
+    await page.click('.offsw button:has-text("BEL")'); await settle(2000);
+    const bel = await badge(), wantBel = await overdue('BRU');
+    await page.click('.offsw button:has-text("DXB")'); await settle(2000);
+    const dxb = await badge(), wantDxb = await overdue('DXB');
+    assert(bel === wantBel && dxb === wantDxb, `the Finance count follows the switch: BEL ${bel} of ${wantBel}, DXB ${dxb} of ${wantDxb}`);
+    // and a Bruges user, straight at the database
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    full = await ctx.newPage();
+    await login(full, 'FULL');
+    const raw = await full.evaluate(async dxbId => {
+      const [l, d] = await Promise.all([sbRaw.from('activity_log').select('office_id'), sbRaw.from('scope_documents').select('office_id,file_name')]);
+      return { log: (l.data || []).filter(x => x.office_id !== (OFFICE_BY_ID[MY_OFFICE_ID] || {}).id).length,
+               docs: (d.data || []).filter(x => x.office_id === dxbId).length, err: (l.error || d.error || {}).message };
+    }, offices.DXB);
+    assert(!raw.err && raw.log === 0 && raw.docs === 0, `a Bruges user reads no other office's log rows and no Dubai documents (saw ${JSON.stringify(raw)})`);
+  } finally {
+    if (full) await full.context().close();
+    const L = "'ZZTEST-SWEEP%'";
+    await sql(`delete from commitment_lines where service like ${L}; delete from commitment_documents where title like ${L};
+      delete from commitments where title like ${L}; delete from invoice_lines where description like ${L};
+      delete from invoices where reference like ${L}; delete from shipment_documents where title like ${L};
+      delete from shipments where reference like ${L}; delete from purchase_order_lines where description like ${L};
+      delete from purchase_orders where reference like ${L}; delete from project_materials where description like ${L};
+      delete from projects where name like ${L}; delete from quotations where reference like ${L};
+      delete from stock_movements where reference like ${L};
+      delete from stock where warehouse_id in (select id from warehouses where name like ${L});
+      delete from warehouses where name like ${L}; delete from approvals where title like ${L};
+      delete from correspondence where summary like ${L}; delete from field_visits where summary like ${L};
+      delete from inquiries where project_name like ${L}; delete from expenses where description like ${L};
+      delete from payroll where person like ${L}; delete from partners where name like ${L};
+      delete from bank_accounts where name like ${L}; delete from scope_documents where file_name like ${L};
+      delete from clients where name like ${L}; delete from activity_log where happened_at >= ${lit(start)}::timestamptz`);
+    const [left] = await sql(`select (select count(*)::int from clients where name like ${L}) c, (select count(*)::int from quotations where reference like ${L}) q,
+      (select count(*)::int from activity_log where happened_at >= ${lit(start)}::timestamptz) l`);
+    assert(left.c === 0 && left.q === 0 && left.l === 0, `nothing it seeded is left behind (saw ${JSON.stringify(left)})`);
+  }
+};
+
 (async () => {
   const names = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(checks);
   const browser = await chromium.launch();
@@ -1173,7 +1324,7 @@ checks.scope_doc_kept = async page => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
     page.on('pageerror', e => fails.push(`${name}: pageerror ${e.message}`));
-    try { await checks[name](page); } catch (e) { fails.push(`${name}: ${e.message}`); console.log('    ✗ threw', e.message.slice(0, 200)); }
+    try { await checks[name](page, browser); } catch (e) { fails.push(`${name}: ${e.message}`); console.log('    ✗ threw', e.message.slice(0, 200)); }
     await context.close();
   }
   await browser.close();
